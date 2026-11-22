@@ -1,0 +1,23 @@
+.carousel--class-names {
+  --slide-size: 60%;
+}
+
+/* ClassNames puts is-snapped on the selected snap's slide; the others step back. The rule waits for the class, so
+   before JavaScript (and without it) every slide looks the same. The card scales, not the slide: Spill measures the
+   slides where they're drawn */
+.carousel--class-names .carousel__card {
+  transition:
+    opacity 0.3s,
+    scale 0.3s;
+}
+
+.carousel--class-names .carousel__container:has(.is-snapped) .carousel__slide:not(.is-snapped) .carousel__card {
+  opacity: 0.4;
+  scale: 0.88;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel--class-names .carousel__card {
+    transition: none;
+  }
+}

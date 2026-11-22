@@ -1,0 +1,460 @@
+---
+import { Code } from "astro:components";
+import Base from "../layouts/Base.astro";
+import Hero from "../examples/hero/index.astro";
+import Mark from "../components/Mark.astro";
+import { site } from "../nav";
+
+const metas = import.meta.glob<{ title: string; description: string; order: number; hidden?: boolean }>("../examples/*/meta.json", {
+  eager: true,
+  import: "default",
+});
+const examples = Object.entries(metas)
+  .map(([path, meta]) => ({ slug: path.split("/").at(-2) ?? "", ...meta }))
+  .filter((example) => !example.hidden)
+  .sort((a, b) => a.order - b.order)
+  .slice(0, 6);
+
+const install = "npm install @bozdev/spill";
+const markup = `<div class="viewport">
+  <div class="container">
+    <div class="slide">1</div>
+    <div class="slide">2</div>
+    <div class="slide">3</div>
+  </div>
+</div>`;
+const css = `.container { display: flex; gap: 1rem; }
+.slide { flex: 0 0 80%; min-width: 0; }`;
+const js = `import Spill from "@bozdev/spill";
+
+const api = Spill(document.querySelector(".viewport"));
+api.on("select", () => console.log(api.selectedScrollSnap()));`;
+
+const rows = [
+  ["A finger's momentum, iOS bounce", "The browser's own", "Imitated"],
+  ["Trackpad, shift + wheel", "Works", "Needs a plugin"],
+  ["The keyboard's focus brings a slide in", "By itself", "Handled separately"],
+  ["Find in page reaches a slide", "Yes", "No"],
+  ["Before or without JavaScript", "Scrollable, readable", "A clipped row"],
+  ["Snapping", "CSS scroll snap", "JS physics"],
+];
+---
+<Base>
+  <main id="content">
+    <section class="home-hero">
+      <div class="home-hero-text">
+        <p class="eyebrow"><Mark /> Embla's API · native scroll</p>
+        <h1>A carousel on the browser's own&nbsp;scroll.</h1>
+        <p class="home-lead">
+          Spill has <a href="https://www.embla-carousel.com">Embla Carousel</a>'s API, options, events and plugins — and nothing moves with transforms. The viewport really
+          scrolls, so a finger, a trackpad, the keyboard and find-in-page all work as they do on any page. No dependencies, no stylesheet.
+        </p>
+        <div class="home-actions">
+          <a class="button button-primary" href="/docs/quick-start/">Get started</a>
+          <a class="button" href="/examples/">Examples</a>
+          <a class="button" href={site.github}>GitHub</a>
+        </div>
+        <div class="install">
+          <code><span aria-hidden="true">$</span> {install}</code>
+          <button class="icon-button" type="button" data-copy={install} aria-label="Copy the install command" title="Copy">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+          </button>
+        </div>
+      </div>
+      <div class="home-stage">
+        <Hero code={false} />
+      </div>
+    </section>
+
+    <section class="home-section">
+      <h2>Three steps</h2>
+      <p class="home-section-lead">Markup you already write, the look in your CSS, one call.</p>
+      <div class="steps">
+        <div class="step">
+          <p class="step-title"><span>1</span> Install</p>
+          <Code code={install} lang="sh" themes={{ light: "github-light", dark: "github-dark" }} defaultColor={false} />
+          <p class="step-note">Or a <code>&lt;script&gt;</code> tag — <a href="/docs/installation/">every way</a>.</p>
+        </div>
+        <div class="step">
+          <p class="step-title"><span>2</span> Markup and CSS</p>
+          <Code code={markup} lang="html" themes={{ light: "github-light", dark: "github-dark" }} defaultColor={false} />
+          <Code code={css} lang="css" themes={{ light: "github-light", dark: "github-dark" }} defaultColor={false} />
+        </div>
+        <div class="step">
+          <p class="step-title"><span>3</span> Call it</p>
+          <Code code={js} lang="js" themes={{ light: "github-light", dark: "github-dark" }} defaultColor={false} />
+          <p class="step-note">Or no script at all: <a href="/docs/attributes/">by attributes</a>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-section">
+      <h2>Why native scroll</h2>
+      <p class="home-section-lead">
+        Carousels move a track with <code>transform</code> and rebuild scrolling in JavaScript. That was the dependable way when they were written. Today the browser does it — and
+        does it better where it matters most: under a finger.
+      </p>
+      <div class="compare">
+        <table>
+          <thead>
+            <tr><th></th><th>Native scroll (Spill)</th><th>Transform (Embla)</th></tr>
+          </thead>
+          <tbody>
+            {rows.map(([what, spill, embla]) => (
+              <tr><th scope="row">{what}</th><td class="is-good">{spill}</td><td>{embla}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="home-more"><a href="/docs/">The whole comparison, and what Spill leaves out</a></p>
+    </section>
+
+    <section class="home-section">
+      <h2>Small</h2>
+      <p class="home-section-lead">The browser does the snapping, the momentum and a finger's drag, so there is less to ship. Minified and gzipped:</p>
+      <div class="sizes" role="list">
+        <div class="size" role="listitem" style="--size: 4.9">
+          <span class="size-name">Spill, the core</span>
+          <span class="size-bar"><span></span></span>
+          <span class="size-value">4.9 KB</span>
+        </div>
+        <div class="size is-other" role="listitem" style="--size: 7.2">
+          <span class="size-name">Embla, the core <small>(8.6.0)</small></span>
+          <span class="size-bar"><span></span></span>
+          <span class="size-value">7.2 KB</span>
+        </div>
+        <div class="size" role="listitem" style="--size: 8">
+          <span class="size-name">Spill, everything <small>(the core, attributes, three plugins)</small></span>
+          <span class="size-bar"><span></span></span>
+          <span class="size-value">8.0 KB</span>
+        </div>
+      </div>
+    </section>
+
+    {examples.length > 0 && (
+      <section class="home-section">
+        <h2>Examples</h2>
+        <p class="home-section-lead">Each one live, with its code.</p>
+        <div class="example-cards">
+          {examples.map((example) => (
+            <a class="example-card" href={`/examples/#${example.slug}`}>
+              <strong>{example.title}</strong>
+              <span>{example.description}</span>
+            </a>
+          ))}
+        </div>
+        <p class="home-more"><a href="/examples/">All examples</a></p>
+      </section>
+    )}
+  </main>
+</Base>
+
+<style>
+  .home-hero {
+    max-width: 90rem;
+    margin: 0 auto;
+    padding: clamp(3rem, 8vw, 6rem) var(--gutter) 2rem;
+  }
+
+  .home-hero-text {
+    max-width: 50rem;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1.25rem;
+    padding: 0.35rem 0.85rem 0.35rem 0.5rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .eyebrow :global(svg) {
+    width: 1.3rem;
+    height: 1.3rem;
+    color: var(--strong);
+  }
+
+  h1 {
+    margin: 0;
+    font: 700 clamp(2.6rem, 7vw, 4.75rem) / 1.02 var(--font-display);
+    letter-spacing: -0.035em;
+    color: var(--strong);
+    text-wrap: balance;
+  }
+
+  .home-lead {
+    max-width: 40rem;
+    margin: 1.5rem auto 0;
+    font-size: clamp(1.05rem, 2vw, 1.2rem);
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+
+  .home-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+
+  .install {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 100%;
+    margin-top: 1.5rem;
+    padding: 0.35rem 0.35rem 0.35rem 1.1rem;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .install code {
+    overflow-x: auto;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    color: var(--strong);
+  }
+
+  .install code span {
+    color: var(--subtle);
+  }
+
+  .home-stage {
+    margin-top: clamp(2.5rem, 6vw, 4rem);
+  }
+
+  .home-section {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: clamp(3rem, 7vw, 5rem) var(--gutter) 0;
+  }
+
+  .home-section h2 {
+    margin: 0;
+    font: 700 clamp(1.8rem, 4vw, 2.5rem) / 1.1 var(--font-display);
+    letter-spacing: -0.025em;
+    color: var(--strong);
+    text-align: center;
+  }
+
+  .home-section-lead {
+    max-width: 40rem;
+    margin: 0.85rem auto 2.25rem;
+    text-align: center;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+
+  .home-section-lead code,
+  .step-note code {
+    font-size: 0.86em;
+    color: var(--strong);
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+
+  .step {
+    min-width: 0;
+    padding: 1.25rem;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .step :global(.astro-code) {
+    margin: 0 0 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .step-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 1rem;
+    font-weight: 650;
+    color: var(--strong);
+  }
+
+  .step-title span {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    color: var(--on-accent);
+    background: var(--accent);
+  }
+
+  .step-note {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  @media (width < 56rem) {
+    .steps {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .compare {
+    max-width: 50rem;
+    margin: 0 auto;
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .compare table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+
+  .compare th,
+  .compare td {
+    padding: 0.85rem 1.15rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+  }
+
+  .compare tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  .compare thead th {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--subtle);
+  }
+
+  .compare tbody th {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .compare td {
+    color: var(--muted);
+  }
+
+  .compare td.is-good {
+    font-weight: 600;
+    color: var(--green);
+  }
+
+  .home-more {
+    margin: 1.25rem 0 0;
+    text-align: center;
+  }
+
+  .sizes {
+    display: grid;
+    gap: 1rem;
+    max-width: 46rem;
+    margin: 0 auto;
+  }
+
+  .size {
+    display: grid;
+    grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) 4.5rem;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .size-name {
+    font-weight: 600;
+    color: var(--strong);
+  }
+
+  .size-name small {
+    display: block;
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: var(--subtle);
+  }
+
+  .size-bar {
+    height: 0.75rem;
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+
+  .size-bar span {
+    display: block;
+    width: calc(var(--size) / 8 * 100%);
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+  }
+
+  .size.is-other .size-bar span {
+    background: var(--line-strong);
+  }
+
+  .size-value {
+    font: 600 0.95rem/1 var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--strong);
+  }
+
+  @media (width < 40rem) {
+    .size {
+      grid-template-columns: minmax(0, 1fr) 4.5rem;
+    }
+
+    .size-bar {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+  }
+
+  .example-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+    gap: 1rem;
+  }
+
+  .example-card {
+    display: grid;
+    gap: 0.35rem;
+    padding: 1.15rem 1.25rem;
+    border-radius: var(--radius-lg);
+    text-decoration: none;
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+    transition: box-shadow var(--motion);
+  }
+
+  .example-card:hover {
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .example-card strong {
+    color: var(--strong);
+  }
+
+  .example-card span {
+    font-size: 0.92rem;
+    color: var(--muted);
+  }
+</style>

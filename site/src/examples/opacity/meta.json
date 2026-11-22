@@ -1,0 +1,5 @@
+{
+  "title": "Opacity",
+  "description": "The slides fade as they leave the middle, worked out on every scroll event from scrollSnapList() and scrollProgress() — Embla's tween way.",
+  "order": 18
+}

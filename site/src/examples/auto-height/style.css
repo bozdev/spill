@@ -1,0 +1,33 @@
+.carousel--auto-height {
+  --slide-size: 100%;
+}
+
+/* AutoHeight writes the selected slide's height on the container. The slides keep their own heights (not the row's),
+   and the height changes smoothly */
+.carousel--auto-height .carousel__container {
+  align-items: flex-start;
+  transition: height 0.3s ease;
+}
+
+/* Slides of different heights */
+.carousel--auto-height .carousel__slide:nth-child(2) {
+  --slide-height: 18rem;
+}
+
+.carousel--auto-height .carousel__slide:nth-child(3) {
+  --slide-height: 9rem;
+}
+
+.carousel--auto-height .carousel__slide:nth-child(4) {
+  --slide-height: 22rem;
+}
+
+.carousel--auto-height .carousel__slide:nth-child(5) {
+  --slide-height: 11rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel--auto-height .carousel__container {
+    transition: none;
+  }
+}

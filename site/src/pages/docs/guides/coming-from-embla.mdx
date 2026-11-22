@@ -1,0 +1,205 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Coming from Embla
+description: Spill has Embla Carousel's options, methods, events and plugin shape, so most Embla code runs as it is — this page covers what changes and how to move a carousel over.
+---
+
+import Callout from "../../../components/Callout.astro";
+
+Spill follows Embla Carousel's API: the same `(viewport, options, plugins)` call, the same option names and defaults, the same methods and events, and the same plugin shape. What's different is underneath. Embla moves a track with `transform`; in Spill the viewport really scrolls. That's where the changes come from, and for most carousels they're the imports and a few lines of CSS.
+
+## Imports
+
+```sh
+npm uninstall embla-carousel embla-carousel-autoplay embla-carousel-class-names embla-carousel-auto-height
+npm install @bozdev/spill
+```
+
+| Embla | Spill |
+|---|---|
+| `import EmblaCarousel from "embla-carousel"` | `import Spill from "@bozdev/spill"` |
+| `import Autoplay from "embla-carousel-autoplay"` | `import Autoplay from "@bozdev/spill/plugins/autoplay"` |
+| `import ClassNames from "embla-carousel-class-names"` | `import ClassNames from "@bozdev/spill/plugins/class-names"` |
+| `import AutoHeight from "embla-carousel-auto-height"` | `import AutoHeight from "@bozdev/spill/plugins/auto-height"` |
+| `EmblaOptionsType`, `EmblaCarouselType`, `EmblaPluginType`, `EmblaEventType` | `SpillOptions`, `SpillApi`, `SpillPlugin`, `SpillEventType` |
+| `AutoplayType`, `AutoplayOptionsType` | `AutoplayType`, `AutoplayOptions` |
+
+The plugins and the types are also exported from `@bozdev/spill` itself, so one line can do: `import { Spill, Autoplay } from "@bozdev/spill"`. See [Modules and bundles](/docs/guides/modules/).
+
+## Creating a carousel
+
+The call is the same — the viewport, the options, the plugins.
+
+**Embla**
+
+```js
+import EmblaCarousel from "embla-carousel";
+import Autoplay from "embla-carousel-autoplay";
+
+const emblaApi = EmblaCarousel(viewportNode, { align: "start" }, [Autoplay({ delay: 5000 })]);
+emblaApi.on("select", () => console.log(emblaApi.selectedScrollSnap()));
+```
+
+**Spill**
+
+```js
+import Spill from "@bozdev/spill";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+
+const emblaApi = Spill(viewportNode, { align: "start" }, [Autoplay({ delay: 5000 })]);
+emblaApi.on("select", () => console.log(emblaApi.selectedScrollSnap()));
+```
+
+You can keep your variable names: only the imports and the function's name change. `EmblaCarousel.globalOptions` becomes `Spill.globalOptions`, and each plugin's `globalOptions` stays as it is.
+
+## Markup
+
+No change. The node you pass is the viewport, its first child is the container, and the container's children are the slides — Embla's `.embla__viewport`, `.embla__container` and `.embla__slide` work as they are. The `container` and `slides` options pick other elements, as in Embla.
+
+## CSS
+
+Embla's CSS clips the viewport and keeps touch for its own JavaScript, because it moves the container with a `transform`. Spill lets the viewport scroll, and writes what it needs for that inline. Here is a typical stylesheet from Embla's examples, and the same carousel for Spill.
+
+**Embla**
+
+```css
+.embla__viewport {
+  overflow: hidden;
+}
+.embla__container {
+  display: flex;
+  touch-action: pan-y pinch-zoom;
+  margin-left: calc(var(--slide-spacing) * -1);
+}
+.embla__slide {
+  transform: translate3d(0, 0, 0);
+  flex: 0 0 var(--slide-size);
+  min-width: 0;
+  padding-left: var(--slide-spacing);
+}
+```
+
+**Spill**
+
+```css
+.embla__viewport {
+  overflow-x: auto; /* scrolls before (and without) JavaScript */
+}
+.embla__container {
+  display: flex;
+  gap: var(--slide-spacing);
+}
+.embla__slide {
+  flex: 0 0 var(--slide-size);
+  min-width: 0;
+}
+```
+
+| In Embla's CSS | With Spill |
+|---|---|
+| `overflow: hidden` on the viewport | Spill writes `overflow-x: auto` inline while it runs, so yours only counts before JavaScript. Make it `overflow-x: auto` and the row scrolls even then |
+| `touch-action: pan-y pinch-zoom` on the container | **Remove it.** It keeps a finger from scrolling the row sideways, and that scrolling is the browser's job now |
+| `transform: translate3d(0, 0, 0)` on the slides | Remove it: nothing is translated |
+| A negative margin on the container and padding on the slides, for the spacing | Use `gap` on the container. Spill measures the slides where they're drawn, so a gap needs no workaround |
+| `.is-draggable` and `.is-dragging` from ClassNames, for the cursor | They still work. Or use the attributes Spill writes, with no plugin: `[data-spill-draggable]` and `[data-spill-dragging]` |
+
+<Callout kind="warning" title="Remove touch-action">
+  Embla's `touch-action: pan-y` is the one line that breaks a Spill carousel: a finger can no longer scroll it sideways.
+</Callout>
+
+What Spill writes on your elements, and takes away again on `destroy()`:
+
+| Where | What |
+|---|---|
+| The viewport | `overflow-x: auto` (`hidden` with `watchDrag: false`), `overflow-y: hidden`, `overscroll-behavior-x: contain`, `scrollbar-width: none`, `scroll-snap-type: x mandatory` (`none` with `dragFree`) — the same along `y` with `axis: "y"` |
+| Each snap's first slide | `scroll-snap-align: start`, `scroll-margin-inline-start` (the snap's alignment), `scroll-snap-stop: always` (unless `skipSnaps`) |
+| The container | With `containScroll: false`: `data-spill-room` and `--spill-room-start`, `--spill-room-end`, `--spill-room-gap`, so its `::before` and `::after` make room before the first snap and after the last |
+
+More in [Markup and CSS](/docs/guides/markup-and-css/).
+
+## Options
+
+The same names and defaults, without `loop`. A few work a little differently on native scroll:
+
+| Option | In Spill |
+|---|---|
+| `loop` | Not supported. Left in, it's ignored, and the carousel stops at the ends ([below](#loop)) |
+| `duration` | The length of an eased scroll animation: the value × 16 ms (25, the default, is about 400 ms) |
+| `watchDrag: false` | No mouse drag, and no scrolling by hand either: the viewport's `overflow` becomes `hidden`. The API still moves it |
+| `watchDrag` as a function | Asked for each mouse press only. A finger always scrolls — that's the browser's |
+| `dragThreshold` | For a mouse. A finger's scroll is the browser's |
+| `dragFree` | Under a finger: no CSS snapping, so the browser's momentum glides and stops where it stops |
+| `skipSnaps` | Under a finger: `false` writes `scroll-snap-stop: always`, so one swipe passes one snap at most |
+
+## Methods and events
+
+Every one of Embla's methods is here, with the same name and the same return — `scrollNext`, `scrollTo`, `canScrollNext`, `selectedScrollSnap`, `scrollSnapList`, `scrollProgress`, `slidesInView`, `plugins`, `reInit`, `destroy`, `on`, `off`, `emit` and the rest ([Methods](/docs/api/methods/)). While a carousel is off (`active: false`), they report an empty one: `containerNode()` is `null`, `slideNodes()` and `scrollSnapList()` are empty, and `canScrollPrev()` and `canScrollNext()` are `false`. The events are Embla's too ([Events](/docs/api/events/)). Two behave differently:
+
+- **`select` during a hand's scroll** fires as soon as the nearest snap changes, not at the release. To act once the carousel has come to rest, listen to `settle`.
+- **A new size** — the viewport's or a slide's, along the axis, by half a pixel or more — is measured in place, not rebuilt. Spill still fires `reInit` and then `resize`, as Embla does, so code that follows `reInit` keeps working — but the plugins aren't started again, and Autoplay's timer runs on.
+
+### `internalEngine()`
+
+Embla's `internalEngine()` returns its whole engine — `scrollBody`, `location`, `target`, `translate`, `slideLooper`, `dragHandler` and many more. Spill has no physics engine, so its `internalEngine()` returns only what plugins need:
+
+| Key | What it is |
+|---|---|
+| `options` | The options in force |
+| `slideRegistry` | Each snap's slides, by index |
+| `scrollSnaps` | Each snap's scroll position in px, counted forward from 0 (in right to left too) |
+| `limit` | `{ min: 0, max }`: the scroll range |
+
+Code that reads anything else needs another source:
+
+- **Where the carousel is now** (Embla's `location`): `api.scrollProgress()`, from 0 to 1 — or `api.scrollProgress() * limit.max` in px.
+- **The loop** (`slideLooper`, `options.loop`): there is none, so drop those branches.
+- **Math on the engine's numbers:** Spill's `scrollSnaps` and `limit` are scroll positions that count up from 0. Check any arithmetic you carried over against that.
+
+Embla's tween recipes — parallax, scale, opacity — read `scrollProgress()`, `scrollSnapList()`, `slidesInView()` and `slideRegistry`, plus a branch for the loop. Without the loop branch, everything they need is here: see the [scale](/examples/#scale) and [opacity](/examples/#opacity) examples. Or let CSS do it, since scroll-driven animations work on a real scroll.
+
+## Loop
+
+Embla's `loop` moves slides around behind the user's back so the row never ends. That's natural with a `transform`, and a fight with a real scroll position, so Spill leaves it out. Instead:
+
+**Autoplay** goes back to the first snap after the last, unless you set `stopOnLastSnap`.
+
+**Buttons can wrap:** Next on the last snap goes to the first, and Previous on the first goes to the last. Leave them enabled at the edges.
+
+```js
+next.addEventListener("click", () => (api.canScrollNext() ? api.scrollNext() : api.scrollTo(0)));
+prev.addEventListener("click", () => (api.canScrollPrev() ? api.scrollPrev() : api.scrollTo(api.scrollSnapList().length - 1)));
+```
+
+`loop: true` left in your options is ignored, and ClassNames has no `loop` class. If an endless row is essential to a design, Embla is the better fit for that carousel.
+
+## Plugins
+
+| Embla | Spill |
+|---|---|
+| `embla-carousel-autoplay` | `@bozdev/spill/plugins/autoplay`, with the same options, methods and events |
+| `embla-carousel-class-names` | `@bozdev/spill/plugins/class-names`, the same without the `loop` class |
+| `embla-carousel-auto-height` | `@bozdev/spill/plugins/auto-height`, the same |
+| `embla-carousel-wheel-gestures` | Not needed: a trackpad and shift + wheel scroll the viewport natively |
+| `embla-carousel-fade` | Not here: a fade isn't a scroll |
+| `embla-carousel-auto-scroll` | Not here |
+| `embla-carousel-react`, `-vue`, `-svelte`, `-solid` | No wrappers: call `Spill()` when the component mounts and `destroy()` when it unmounts ([Frameworks](/docs/frameworks/)) |
+
+A plugin of your own keeps Embla's shape: `name`, `options`, `init(api, optionsHandler)` and `destroy()`. One that uses only the API and the options handler (`mergeOptions`, `optionsAtMedia`, `optionsMediaQueries`) runs as it is. One that reaches into the engine needs the changes [above](#internalengine). See [Plugins](/docs/api/plugins/).
+
+## What you'll notice
+
+- A finger scrolls the carousel with the browser's own momentum, and the iOS bounce. CSS scroll snap stops it.
+- A trackpad and shift + wheel scroll it natively. A plain vertical mouse wheel scrolls the page, as over any sideways scrolling box.
+- A mouse drags it as in Embla, and the click a drag ends with is swallowed.
+- Tabbing to a link in a slide out of view brings the slide in. Find in page reaches every slide.
+- Before JavaScript runs, the row scrolls instead of sitting clipped.
+
+## A checklist
+
+1. Swap the packages and the imports.
+2. Call `Spill()` where you called `EmblaCarousel()`, and set `Spill.globalOptions` where you set `EmblaCarousel.globalOptions`.
+3. Remove `touch-action` from the container and `translate3d` from the slides, and let the viewport scroll with `overflow-x: auto`.
+4. Remove `loop`, and make the buttons wrap if you want that.
+5. Remove WheelGestures and Fade.
+6. Check any code that reads `internalEngine()` beyond `options`, `slideRegistry`, `scrollSnaps` and `limit`.
+7. Check any code that expects `select` at the release of a swipe.

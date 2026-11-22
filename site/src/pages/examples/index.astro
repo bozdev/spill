@@ -1,0 +1,25 @@
+---
+// Every example (src/examples/*/), in its meta.json's order — live, each with its code
+import Docs from "../../layouts/Docs.astro";
+
+type Meta = { title: string; description: string; order: number; hidden?: boolean };
+const metas = import.meta.glob<Meta>("../../examples/*/meta.json", { eager: true, import: "default" });
+const components = import.meta.glob<{ default: any }>("../../examples/*/index.astro", { eager: true });
+const examples = Object.entries(metas)
+  .map(([path, meta]) => ({ slug: path.split("/").at(-2) ?? "", Component: components[path.replace("meta.json", "index.astro")]?.default, ...meta }))
+  .filter((example) => !example.hidden && example.Component)
+  .sort((a, b) => a.order - b.order);
+const headings = examples.map((example) => ({ depth: 2, slug: example.slug, text: example.title }));
+---
+<Docs title="Examples" description="Each one live, with its code. They share one stylesheet — the look is yours; Spill only scrolls." headings={headings}>
+  <p>
+    The examples share <a href="https://github.com/bozdev/spill/blob/main/site/src/examples/base.css">one stylesheet</a> for the look; each adds its own touches. Drag them with a mouse, scroll them with a trackpad or a finger, reach them with the keyboard.
+  </p>
+  {examples.map(({ slug, title, description, Component }) => (
+    <section class="example-section">
+      <h2 id={slug}>{title}</h2>
+      <p>{description}</p>
+      <Component caption={false} />
+    </section>
+  ))}
+</Docs>

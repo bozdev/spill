@@ -1,0 +1,5 @@
+{
+  "title": "Auto height",
+  "description": "Slides of different heights: the carousel is as tall as the selected one and follows it, smoothly unless you ask for reduced motion.",
+  "order": 15
+}

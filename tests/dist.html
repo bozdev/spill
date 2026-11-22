@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spill — dist</title>
+    <style>
+      .viewport {
+        width: 600px;
+      }
+      .row {
+        display: flex;
+      }
+      .slide {
+        flex: 0 0 200px;
+        height: 100px;
+      }
+    </style>
+  </head>
+  <body>
+    <section id="auto" data-spill-carousel='{"align":"start"}' data-spill-plugins="class-names">
+      <div data-spill-viewport class="viewport">
+        <div class="row"><div class="slide">1</div><div class="slide">2</div><div class="slide">3</div><div class="slide">4</div><div class="slide">5</div></div>
+      </div>
+      <button data-spill-next id="next">›</button>
+    </section>
+    <div class="viewport" id="manual">
+      <div class="row"><div class="slide">1</div><div class="slide">2</div><div class="slide">3</div><div class="slide">4</div><div class="slide">5</div></div>
+    </div>
+    <script src="../dist/spill.auto.js"></script>
+    <script>
+      window.manual = Spill(document.querySelector("#manual"), { align: "start" }, [Spill.Autoplay({ playOnInit: false })]);
+    </script>
+  </body>
+</html>

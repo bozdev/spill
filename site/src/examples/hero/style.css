@@ -1,0 +1,85 @@
+.carousel--hero {
+  --slide-size: min(78%, 24rem);
+  --slide-spacing: 1.25rem;
+  max-width: none;
+}
+
+.hero-card {
+  display: grid;
+  align-content: end;
+  gap: 0.5rem;
+  height: 100%; /* every card as tall as the tallest (the row stretches its slides) */
+  min-height: 17rem;
+  padding: 1.75rem;
+  border-radius: 1.5rem;
+  color: #fff;
+  user-select: none;
+}
+
+.hero-card h3 {
+  margin: 0;
+  font: 700 1.9rem/1.1 var(--font-display, system-ui);
+  letter-spacing: -0.02em;
+}
+
+.hero-card p {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  opacity: 0.92;
+}
+
+.hero-card__kicker {
+  margin-bottom: auto;
+  font: 600 0.8rem/1 var(--font-mono, monospace);
+  opacity: 0.75;
+}
+
+.hero-card--purple {
+  background: radial-gradient(120% 90% at 100% 0%, #b79bff 0%, transparent 55%), linear-gradient(150deg, #8a5cf0, #4b2bb0);
+}
+
+.hero-card--green {
+  background: radial-gradient(120% 90% at 100% 0%, #a6f3cf 0%, transparent 55%), linear-gradient(150deg, #3cc58f, #136e52);
+}
+
+.hero-card--yellow {
+  color: #2a1d00;
+  background: radial-gradient(120% 90% at 100% 0%, #fff0b3 0%, transparent 55%), linear-gradient(150deg, #f8cf4f, #e0901f);
+}
+
+.hero-card--pink {
+  background: radial-gradient(120% 90% at 100% 0%, #ffc0d6 0%, transparent 55%), linear-gradient(150deg, #ee6f99, #a5345f);
+}
+
+.hero-card--blue {
+  background: radial-gradient(120% 90% at 100% 0%, #b6dcff 0%, transparent 55%), linear-gradient(150deg, #4ea6f2, #2459ad);
+}
+
+/* ClassNames marks the selected snap's slide: the others' cards step back (only once it has — without JavaScript, all
+   slides look the same). The card is scaled, not the slide: Spill measures slides where they're drawn */
+.carousel--hero .hero-card {
+  transition:
+    opacity 0.35s,
+    scale 0.35s;
+}
+
+.carousel--hero .carousel__container:has(.is-snapped) .carousel__slide:not(.is-snapped) .hero-card {
+  opacity: 0.45;
+  scale: 0.94;
+}
+
+.carousel--hero .carousel__button--play .icon-play,
+.carousel--hero .carousel__button--play[aria-pressed="false"] .icon-pause {
+  display: none;
+}
+
+.carousel--hero .carousel__button--play[aria-pressed="false"] .icon-play {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel--hero .hero-card {
+    transition: none;
+  }
+}

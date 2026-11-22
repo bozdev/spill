@@ -1,0 +1,41 @@
+/* The row of thumbnails: a second carousel, its slides small buttons (the cards' colors come along) */
+.carousel--thumbnails .carousel__thumbs {
+  --slide-size: 5.5rem;
+  --slide-spacing: 0.5rem;
+  --slide-height: 4rem;
+  margin-top: 0.75rem;
+}
+
+.carousel--thumbnails .carousel__thumb {
+  padding: 0;
+  border: 0;
+  border-radius: 0.75rem;
+  background: none;
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.carousel--thumbnails .carousel__thumb:hover {
+  opacity: 0.75;
+}
+
+.carousel--thumbnails .carousel__thumb[aria-current="true"] {
+  opacity: 1;
+}
+
+/* The focus ring inside: the row clips what's outside it */
+.carousel--thumbnails .carousel__thumb:focus-visible {
+  outline-offset: -2px;
+}
+
+.carousel--thumbnails .carousel__thumb .carousel__card {
+  border-radius: inherit;
+  font-size: 1.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel--thumbnails .carousel__thumb {
+    transition: none;
+  }
+}

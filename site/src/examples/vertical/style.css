@@ -1,0 +1,35 @@
+/* The carousel beside its controls */
+.carousel--vertical {
+  --slide-size: 75%;
+  display: flex;
+  gap: 1rem;
+}
+
+/* A column needs a height to scroll in: the viewport's is fixed, and the slides' sizes are shares of it */
+.carousel--vertical .carousel__viewport {
+  flex: 1;
+  height: 22rem;
+  overflow-x: hidden;
+  overflow-y: auto; /* before JavaScript (and without it) the column still scrolls */
+}
+
+.carousel--vertical .carousel__container {
+  flex-direction: column;
+  height: 100%;
+}
+
+.carousel--vertical .carousel__card {
+  height: 100%;
+}
+
+/* The controls: a column too */
+.carousel--vertical .carousel__controls {
+  flex-direction: column;
+  justify-content: center;
+  margin-top: 0;
+}
+
+.carousel--vertical .carousel__buttons,
+.carousel--vertical .carousel__dots {
+  flex-direction: column;
+}

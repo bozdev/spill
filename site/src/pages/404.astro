@@ -1,0 +1,41 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Not found">
+  <main id="content" class="not-found">
+    <p class="code">404</p>
+    <h1>This page spilled over the edge.</h1>
+    <p>It isn't here — maybe it moved.</p>
+    <p><a class="button button-primary" href="/">Home</a> <a class="button" href="/docs/">Docs</a></p>
+  </main>
+</Base>
+
+<style>
+  .not-found {
+    display: grid;
+    justify-items: center;
+    gap: 0.5rem;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 6rem var(--gutter);
+    text-align: center;
+  }
+
+  .code {
+    margin: 0;
+    font: 700 1rem/1 var(--font-mono);
+    color: var(--accent-text);
+  }
+
+  h1 {
+    margin: 0;
+    font: 700 clamp(2rem, 5vw, 3rem) / 1.1 var(--font-display);
+    letter-spacing: -0.03em;
+    color: var(--strong);
+    text-wrap: balance;
+  }
+
+  p {
+    color: var(--muted);
+  }
+</style>

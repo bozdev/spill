@@ -1,0 +1,6 @@
+{
+  "title": "By attributes, with Autoplay",
+  "description": "The home page's carousel: no script of its own — attributes, Autoplay with a play button, and ClassNames stepping the other slides back.",
+  "order": 99,
+  "hidden": true
+}

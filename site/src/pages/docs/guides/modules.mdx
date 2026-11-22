@@ -1,0 +1,204 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Modules and bundles
+description: Spill comes as separate ES modules — the core, the attributes layer and each plugin — so you load only what a page uses, plus built files for a page with no build step.
+---
+
+Every part of Spill is its own ES module, and each one stands on its own. Import what a page uses, and a bundler leaves out the rest. For a page without a build step there are built files: one ES module with every part, each module on its own, or a classic `<script>` that makes a global `Spill`.
+
+## Entry points
+
+| Import | File | What it holds |
+|---|---|---|
+| `@bozdev/spill` | `src/index.js` | Every part: `Spill` (also the default export), `Autoplay`, `ClassNames`, `AutoHeight` and `SpillAuto`, with `defaultOptions`, `optionsHandler` and each plugin's defaults |
+| `@bozdev/spill/core` | `src/spill.js` | The carousel alone: `Spill` (default), `defaultOptions`, `optionsHandler` |
+| `@bozdev/spill/attributes` | `src/attributes.js` | `SpillAuto`, which builds carousels and wires their controls from attributes. It doesn't start by itself |
+| `@bozdev/spill/auto` | `src/auto.js` | Everything `@bozdev/spill` exports, the default too — and, as it loads, it registers the three plugins with `SpillAuto` and calls `SpillAuto.start()` |
+| `@bozdev/spill/plugins/autoplay` | `src/plugins/autoplay.js` | `Autoplay` (default), `autoplayDefaults` |
+| `@bozdev/spill/plugins/class-names` | `src/plugins/class-names.js` | `ClassNames` (default), `classNamesDefaults` |
+| `@bozdev/spill/plugins/auto-height` | `src/plugins/auto-height.js` | `AutoHeight` (default), `autoHeightDefaults` |
+| `@bozdev/spill/dist/…` | `dist/` | The [built files](#the-built-files) |
+
+```js
+import Spill from "@bozdev/spill";                       // the carousel
+import Autoplay from "@bozdev/spill/plugins/autoplay";  // a plugin
+import { SpillAuto } from "@bozdev/spill/attributes";    // carousels by attributes
+```
+
+- **The core alone** is `import Spill from "@bozdev/spill/core"`. With a bundler, `import Spill from "@bozdev/spill"` comes to the same: only `src/spill.js` ends up in your bundle ([tree shaking](#tree-shaking)). Without one, it's `dist/esm/spill.js`.
+- **`@bozdev/spill/auto` exports the carousel too,** as its default and by name, like `@bozdev/spill`: `import Spill from "@bozdev/spill/auto"` works.
+- **Types.** Every entry except `dist/` comes with TypeScript types, made from the source's JSDoc.
+- **On a server.** Nothing touches the page until you call `Spill()` or `SpillAuto.start()`, so every entry except `auto` can be imported where there's no DOM. Build the carousels in the browser.
+
+```ts
+import type { SpillOptions, SpillApi, SpillPlugin, AutoplayOptions } from "@bozdev/spill";
+```
+
+## Tree shaking
+
+The package lists the only files that do something as they load:
+
+```json
+{
+  "sideEffects": ["./src/auto.js", "./dist/spill.auto.js", "./dist/spill.global.js"]
+}
+```
+
+Those three register the plugins and start `SpillAuto`, or set up the global `Spill`. Every other file only defines things, so a bundler — Vite, Rollup, webpack, esbuild — keeps just what your code imports:
+
+| You import | Your bundle holds |
+|---|---|
+| `Spill` from `@bozdev/spill`, or `@bozdev/spill/core` | `spill.js` |
+| `Spill` and `Autoplay` from `@bozdev/spill` | `spill.js`, `plugins/autoplay.js` |
+| `SpillAuto` from `@bozdev/spill/attributes` | `attributes.js`, `spill.js` |
+| `@bozdev/spill/auto` | Everything |
+
+`auto` registers all three plugins, so all three come along. To ship only the ones your markup names, register them yourself under the same names `auto` uses — `autoplay`, `class-names`, `auto-height`:
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+
+SpillAuto.plugins = { autoplay: Autoplay }; // the names data-spill-plugins can use
+SpillAuto.start();
+```
+
+### Only on pages with a carousel
+
+A dynamic `import()` becomes a chunk of its own, loaded only where it's needed:
+
+```js
+if (document.querySelector("[data-spill-carousel]")) {
+  import("@bozdev/spill/auto");
+}
+```
+
+The same for a carousel built by hand:
+
+```js
+const viewport = document.querySelector(".carousel__viewport");
+if (viewport) {
+  import("@bozdev/spill").then(({ default: Spill }) => {
+    const api = Spill(viewport, { align: "start" });
+  });
+}
+```
+
+## The built files
+
+`dist/` holds minified builds for a page with no bundler. Their sizes are on [Installation](/docs/installation/).
+
+| File | What it is |
+|---|---|
+| `dist/spill.esm.js` | Every part in one ES module, with the same exports as `@bozdev/spill` |
+| `dist/spill.global.js` | For a classic `<script>`: a global `Spill` |
+| `dist/spill.auto.js` | The same global, with the three plugins registered and `SpillAuto` started |
+| `dist/esm/spill.js` | The core alone, as an ES module |
+| `dist/esm/attributes.js` | `SpillAuto` as an ES module |
+| `dist/esm/plugins/*.js` | Each plugin on its own |
+
+```html
+<script type="module">
+  import Spill from "./spill/dist/esm/spill.js";
+  import Autoplay from "./spill/dist/esm/plugins/autoplay.js";
+
+  const api = Spill(document.querySelector(".viewport"), { align: "start" }, [Autoplay()]);
+</script>
+```
+
+Keep the `dist/esm/` folder as it is: `attributes.js` imports `./spill.js` from beside it.
+
+## The global script
+
+`dist/spill.global.js` sets one global, `Spill` — the carousel function, with the rest on it. A CDN that reads the package's `unpkg` or `jsdelivr` field serves this file.
+
+| Global | What it is |
+|---|---|
+| `Spill(viewport, options, plugins)` | The carousel |
+| `Spill.Autoplay`, `Spill.ClassNames`, `Spill.AutoHeight` | The plugins |
+| `Spill.SpillAuto` | Carousels by attributes, not started |
+| `Spill.globalOptions` | Options under every carousel's own |
+| `Spill.defaultOptions`, `Spill.optionsHandler` | The defaults, and the helpers a plugin gets |
+
+```html
+<script src="spill/dist/spill.global.js"></script>
+<script>
+  const api = Spill(document.querySelector(".viewport"), { align: "start" }, [Spill.Autoplay()]);
+</script>
+```
+
+For carousels by attributes, `dist/spill.auto.js` does everything: it registers the plugins and builds every `[data-spill-carousel]`. It waits until the page is parsed, so it can go in the `<head>`. With `spill.global.js`, start it yourself:
+
+```html
+<script src="spill/dist/spill.global.js"></script>
+<script>
+  Spill.SpillAuto.plugins = { autoplay: Spill.Autoplay };
+  Spill.SpillAuto.start();
+</script>
+```
+
+## When init fires
+
+`Spill()` does its work before it returns. By the time you have the API, the carousel is measured, its styles are written, it sits on `startIndex`, and its plugins have started. The `init` event comes after that, on the next task, so a listener you add right after the call hears it:
+
+```js
+const api = Spill(viewport, { align: "start" });
+api.selectedScrollSnap(); // ready to read now
+api.on("init", () => console.log("init")); // heard: init fires after Spill() returns
+```
+
+- `init` fires once. A rebuild fires `reInit` instead.
+- A listener added later — after an `await`, in a timer — misses it. Read the API directly then: it's ready as soon as `Spill()` returns.
+- No `select` fires for the start snap. Set up your buttons and dots right away (or on `init`), and again on `reInit`.
+- With `active: false`, `init` still fires, though Spill has built nothing.
+
+## A carousel built while hidden
+
+A carousel in a closed tab, a collapsed `<details>` or a dialog that isn't open has no size yet, so Spill measures zeros. That's fine. Its ResizeObserver sees the viewport get a size when it shows, and Spill measures again, then fires `reInit` and `resize`. Buttons and dots that follow `reInit` catch up on their own.
+
+Two cases need a hand:
+
+- With `watchResize: false` (or a function that returns `false`), nothing is measured again. Call `api.reInit()` once the carousel shows.
+- Something that moves the slides without resizing them or the viewport — a class that changes the `gap`, say. Call `api.reInit()` after it.
+
+A carousel hidden with `visibility: hidden` keeps its size, so it measures normally.
+
+## By attributes: start and observe
+
+`SpillAuto.start()` builds every `[data-spill-carousel]` on the page — at once, or once the page is parsed if it's still loading. Then, by default, it watches the page: carousels added later are built, and carousels removed are taken down.
+
+Each carousel it builds fires `spill:ready` on its element. The event bubbles, and carries the API:
+
+```js
+document.addEventListener("spill:ready", (event) => {
+  const api = event.detail.api;
+  api.on("settle", () => console.log("at rest on", api.selectedScrollSnap()));
+});
+```
+
+A site that swaps its content itself — a client-side router, swup, Turbo — starts without watching and says what came and what went. Here `router` stands for your router's own hooks:
+
+```js
+SpillAuto.start({ observe: false });
+router.on("contentReplaced", (roots) => SpillAuto.scan(roots));
+router.on("beforeReplace", (roots) => SpillAuto.forget(roots));
+```
+
+| Method | What it does |
+|---|---|
+| `SpillAuto.start({ observe })` | Builds every carousel. `observe` (default `true`): the ones added later too, and takes down the ones removed |
+| `SpillAuto.scan(roots)` | Builds the carousels in these roots, each only once |
+| `SpillAuto.forget(roots)` | Takes down the carousels in these roots |
+| `SpillAuto.stop()` | Takes every carousel down and stops watching |
+| `SpillAuto.get(element)` | A carousel's API, by its element or anything in it — `null` if none |
+| `SpillAuto.all()` | A `Map` of every carousel built: element to API |
+
+A carousel's controls are found when it's built. A control added later works once the carousel is built again: `SpillAuto.forget([carousel])`, then `SpillAuto.scan([carousel])`.
+
+## Destroying
+
+`api.destroy()` takes a carousel down. Its plugins are destroyed, its listeners removed, and every style and attribute it wrote is taken away, so the markup is as it was — a `data-spill-viewport` you wrote yourself stays. It fires `destroy`, then drops every listener. Calling it twice is safe. A destroyed carousel can't be rebuilt — call `Spill()` again for a new one.
+
+Call it when the carousel leaves the page — in a framework, when the component unmounts ([Frameworks](/docs/frameworks/)).
+
+For a carousel built by attributes, use `SpillAuto.forget([element])` rather than `api.destroy()`. It also removes the dots, labels and control states `SpillAuto` wrote, and lets the element be built again later. With `observe` on, removing the element from the page does it for you.

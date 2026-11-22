@@ -1,0 +1,23 @@
+/* Narrower, shorter slides: more of them show */
+.carousel--progress {
+  --slide-size: min(60%, 16rem);
+  --slide-height: 10rem;
+}
+
+/* The track: where the dots would be */
+.carousel--progress .carousel__progress {
+  flex: 0 1 12rem;
+  height: 0.3rem;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: var(--line-strong, #3a3a42);
+}
+
+/* The bar: --progress (0 to 1) is written by the script as it scrolls. A scale, not a width: nothing is laid out
+   again on a scroll. */
+.carousel--progress .carousel__progress-bar {
+  height: 100%;
+  background: var(--accent, #9368f0);
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+}

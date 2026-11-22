@@ -1,0 +1,234 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Autoplay
+description: Autoplay moves the carousel to the next snap on a timer, goes back to the first at the end, and stops when someone takes over.
+---
+
+import AutoplayExample from "../../../examples/autoplay/index.astro";
+import Callout from "../../../components/Callout.astro";
+
+<AutoplayExample />
+
+Autoplay has embla-carousel-autoplay's options, methods and events, by the same names. It is a module of its own: import it where a carousel autoplays.
+
+## Add it
+
+```js
+import Spill from "@bozdev/spill";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+
+const api = Spill(viewport, { align: "start" }, [Autoplay({ delay: 5000 })]);
+```
+
+It is also a named export of the package, `import { Spill, Autoplay } from "@bozdev/spill"`. With a `<script>` tag (`dist/spill.global.js`) it is `Spill.Autoplay`:
+
+```html
+<script src="spill/dist/spill.global.js"></script>
+<script>
+  const api = Spill(document.querySelector(".viewport"), { align: "start" }, [Spill.Autoplay()]);
+</script>
+```
+
+Without a script of your own, name it in `data-spill-plugins` — see [By attributes](#by-attributes).
+
+The plugin is in `api.plugins()` by its name, `autoplay`:
+
+```js
+const autoplay = api.plugins().autoplay;
+
+autoplay.stop();
+autoplay.isPlaying(); // false
+autoplay.play();
+```
+
+## Options
+
+| Option | Default | |
+|---|---|---|
+| `active` | `true` | `false`: it neither starts nor watches anything |
+| `breakpoints` | `{}` | Options by media query, merged in while it matches: `{ "(min-width: 768px)": { delay: 6000 } }` |
+| `delay` | `4000` | Milliseconds on each snap before the next. Or a function: [a delay per snap](#a-delay-per-snap) |
+| `jump` | `false` | `true`: it moves without the animation |
+| `playOnInit` | `true` | It starts when the carousel is built. `false`: it waits for `play()` |
+| `stopOnFocusIn` | `true` | A focus inside stops it until `play()` ([On focus](#on-focus)) |
+| `stopOnInteraction` | `true` | A press on the viewport stops it until `play()`. `false`: a press only holds the timer ([On a press](#on-a-press)) |
+| `stopOnMouseEnter` | `false` | The mouse over it stops it; leaving starts it again ([On hover](#on-hover)) |
+| `stopOnLastSnap` | `false` | At the last snap it stops, instead of going back to the first ([At the last snap](#at-the-last-snap)) |
+| `rootNode` | `null` | `(viewport) => element`: where the mouse and the focus are watched. `null` (or a function that returns `null`): the viewport |
+
+`Autoplay.globalOptions` holds options every Autoplay starts from, under its own — as `Spill.globalOptions` does for the carousel. Set it before the carousels are built:
+
+```js
+Autoplay.globalOptions = { delay: 6000, stopOnMouseEnter: true };
+```
+
+A breakpoint in the options given to `Autoplay()` that starts or stops matching rebuilds the carousel, and Autoplay with it ([When the carousel is rebuilt](#when-the-carousel-is-rebuilt)). No autoplay on a narrow screen:
+
+```js
+Autoplay({ breakpoints: { "(max-width: 639px)": { active: false } } });
+```
+
+### A delay per snap
+
+`delay` can be a function. It gets the snaps' places (`api.scrollSnapList()`, 0 to 1) and the API, and returns one delay for each snap:
+
+```js
+Autoplay({
+  // The first snap stays eight seconds, the others four
+  delay: (scrollSnaps, api) => scrollSnaps.map((_, index) => (index === 0 ? 8000 : 4000)),
+});
+```
+
+It is called each time the timer starts, so the list can follow the snaps as they change. A snap with no number in the list waits 4000 ms.
+
+## Methods
+
+| Method | Returns | |
+|---|---|---|
+| `play(jump?)` | | Starts it: `autoplay:play`, then the full delay before the first move. `jump` (a boolean), when given, sets the `jump` option for the moves from now on. Playing already: only `jump` changes |
+| `stop()` | | Stops it: the timer cleared, then `autoplay:stop`. Stopped already: nothing happens |
+| `reset()` | | Starts the delay over, from now. Stopped: nothing happens |
+| `isPlaying()` | `boolean` | `true` from `play()` until it stops — also while the page is hidden, and while a press holds the timer |
+| `timeUntilNext()` | `number` or `null` | Milliseconds until the next move. `null` when no timer counts: stopped, the page hidden, a press holding it |
+
+## Events
+
+Autoplay's events come from the carousel, like its own: `api.on(name, callback)`, the callback given `(api, eventName)`.
+
+```js
+api.on("autoplay:select", () => {
+  console.log("autoplay moved to", api.selectedScrollSnap());
+});
+```
+
+| Event | When |
+|---|---|
+| `autoplay:play` | It started |
+| `autoplay:stop` | It stopped: `stop()`, a press, a focus, the mouse, the last snap |
+| `autoplay:select` | It moved to the next snap, or back to the first. The carousel's `select` comes first |
+| `autoplay:timerset` | A timer started: `timeUntilNext()` is the full delay |
+| `autoplay:timerstopped` | A timer was cleared before it ran out: a stop, a press, the page hidden, `reset()`, a rebuild |
+
+<Callout kind="tip" title="The first state">
+  With `playOnInit`, the first `autoplay:play` and `autoplay:timerset` happen while the carousel is built — before `Spill()` returns, so before your listeners. Read `isPlaying()` and `timeUntilNext()` on `init` for the state it starts in, as the example above does.
+</Callout>
+
+## How it behaves
+
+Each snap waits its delay, then autoplay moves on with `scrollNext()`. When something else selects a snap while it plays — a dot, a `scrollTo()` of yours, a trackpad — the time starts over, so that snap gets its full delay.
+
+### At the last snap
+
+Spill has no loop. At the last snap, when its delay is up, autoplay scrolls back to the first — across the row, or at once with `jump` — and goes on from there.
+
+With `stopOnLastSnap: true` it stops there instead: when the last snap's delay is up, `autoplay:stop`. Until then `isPlaying()` is still `true`.
+
+### On a press
+
+A press is a pointer going down on the viewport: a mouse button, a finger, a pen.
+
+- `stopOnInteraction: true` (the default) — a press stops autoplay until `play()` is called. The mouse leaving doesn't start it again.
+- `stopOnInteraction: false` — a press only clears the timer. The full delay starts again when the press ends (`pointerUp`: the button, the finger or the pen comes up, or a finger's press turns into a scroll), and again when the scroll selects another snap.
+
+A trackpad or a mouse wheel isn't a press. Autoplay goes on, and the snap they bring in gets its full delay.
+
+### On focus
+
+With `stopOnFocusIn` (the default), a focus inside the viewport (or [its root](#where-it-watches)) stops autoplay until `play()` is called — someone who tabs to a link in a slide gets the carousel to themselves. A play button outside the viewport isn't watched, so clicking it never counts as a focus inside.
+
+### On hover
+
+With `stopOnMouseEnter: true`, the mouse over the viewport stops autoplay, and leaving starts it again — if it was playing when the mouse came in, and no press (with `stopOnInteraction`) or focus (with `stopOnFocusIn`) came while the mouse was over it: those stop it for good. Each stop and start fires `autoplay:stop` or `autoplay:play`, so a play button follows along.
+
+While the mouse is over it, autoplay is already stopped: a press there doesn't stop it for good, and leaving starts it again.
+
+### Where it watches
+
+`rootNode` moves where the mouse and the focus are watched — say the whole carousel, its buttons and dots included. Presses are always the viewport's.
+
+```js
+Autoplay({
+  stopOnMouseEnter: true,
+  rootNode: (viewport) => viewport.closest(".carousel"),
+});
+```
+
+<Callout kind="warning" title="A play button inside the root">
+  In most browsers a click focuses the button first. With `stopOnFocusIn`, that focus stops autoplay, and the click then starts it again — the button seems not to work. Keep the play button outside the root, or set `stopOnFocusIn: false`.
+</Callout>
+
+### While the page is hidden
+
+When the tab goes to the background (`document.hidden`), the timer is cleared (`autoplay:timerstopped`); autoplay still counts as playing, and no `autoplay:stop` fires. When the page shows again, the snap gets its full delay.
+
+### When the carousel is rebuilt
+
+`api.reInit()`, a breakpoint that starts or stops matching, slides added or removed: the carousel is rebuilt, and Autoplay with it. It is taken down without an `autoplay:stop`, then starts again if `playOnInit` is on — whatever stopped it before. Read `isPlaying()` again on `reInit` to keep a play button right.
+
+A new size alone rebuilds nothing: the carousel measures again and the timer runs on.
+
+## By attributes
+
+Name it in `data-spill-plugins`, its options as JSON in `data-spill-autoplay`, and give it a `data-spill-play` button:
+
+```html
+<section data-spill-carousel='{"align":"start"}' data-spill-plugins="autoplay"
+         data-spill-autoplay='{"delay":5000,"stopOnMouseEnter":true}' aria-label="News">
+  <div class="viewport" data-spill-viewport>
+    <div class="container">…</div>
+  </div>
+  <button type="button" data-spill-play>
+    <svg class="icon-pause" …>…</svg>
+    <svg class="icon-play" …>…</svg>
+  </button>
+</section>
+```
+
+```js
+import "@bozdev/spill/auto"; // or <script src="spill/dist/spill.auto.js"> — both register Autoplay
+```
+
+- **`data-spill-play`** — a click plays or stops it. Its `aria-pressed` is `true` while it plays, updated on `autoplay:play`, `autoplay:stop` and `reInit`. It gets `aria-label="Autoplay"` when it has no `aria-label` (`SpillAuto.words.autoplay`). With `data-spill-for="<id>"` — the carousel's id — it can be anywhere on the page.
+- **The plugin** — `SpillAuto.get(element)?.plugins().autoplay`, for its methods (`get()` returns `null` before the carousel is built).
+- **With `@bozdev/spill/attributes`** instead of `auto` — register it yourself first: `SpillAuto.plugins = { autoplay: Autoplay }`.
+
+One icon at a time, by the state:
+
+```css
+[data-spill-play][aria-pressed="true"] .icon-play,
+[data-spill-play]:not([aria-pressed="true"]) .icon-pause {
+  display: none;
+}
+```
+
+JSON holds no functions: a `delay` per snap or a `rootNode` needs a factory of your own. `SpillAuto.plugins` maps a name to a function that gets the JSON options:
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+
+SpillAuto.plugins = {
+  // The attribute's options, plus a delay per snap
+  autoplay: (options) => Autoplay({ ...options, delay: (snaps) => snaps.map((_, index) => (index === 0 ? 8000 : 4000)) }),
+};
+SpillAuto.start();
+```
+
+More on the attributes: [By attributes](/docs/attributes/).
+
+## Accessibility
+
+Content that moves by itself for more than five seconds needs a way to pause it — [WCAG 2.2.2, Pause, Stop, Hide](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html). Autoplay does part of it: it stops on a focus inside and on a press, and waits while the page is hidden. The rest is yours:
+
+- **A play / pause button**, visible and reachable with the keyboard: `data-spill-play`, or your own that calls `stop()` and `play()` and shows `isPlaying()`, as in the example above.
+- **`stopOnMouseEnter: true`** for people reading a slide with the mouse over it.
+- **A delay long enough** to read a slide.
+- **Reduced motion.** When the system asks for reduced motion, Spill jumps instead of animating its moves — autoplay's too. To not start it at all then:
+
+```js
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+Spill(viewport, { align: "start" }, [Autoplay({ playOnInit: !still })]);
+```
+
+More in [Accessibility and motion](/docs/guides/accessibility/).

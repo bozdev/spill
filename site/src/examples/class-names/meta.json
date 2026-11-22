@@ -1,0 +1,5 @@
+{
+  "title": "Class names",
+  "description": "ClassNames marks the selected snap's slide, and the CSS lets the others step back — only once the class is there, so nothing is dimmed without JavaScript.",
+  "order": 14
+}

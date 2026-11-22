@@ -1,0 +1,63 @@
+---
+layout: ../../layouts/Docs.astro
+title: Introduction
+description: Spill is a carousel on the browser's own scroll — Embla Carousel's API, options, events and plugins, with native scroll underneath.
+---
+
+import Basic from "../../examples/basic/index.astro";
+import Callout from "../../components/Callout.astro";
+
+<Basic />
+
+Nothing here is moved with a `transform`: the viewport really scrolls. A finger's momentum, a trackpad, the keyboard's focus, find-in-page and screen readers all work as they do on any scrolling box. The browser's CSS snap points do the snapping; Spill measures, animates and reports.
+
+- **Embla's API.** The same options, methods, events and plugin shape — code written for Embla mostly runs as it is ([Coming from Embla](/docs/guides/coming-from-embla/)).
+- **No dependencies, no stylesheet.** What it needs to work it writes inline, and takes away again on `destroy()`. The look stays yours.
+- **Plugins.** [Autoplay](/docs/plugins/autoplay/), [Class names](/docs/plugins/class-names/) and [Auto height](/docs/plugins/auto-height/), with Embla's options, methods and events — or [your own](/docs/api/plugins/).
+- **By attributes.** Write the markup and the carousel builds itself; its controls can be anywhere on the page ([By attributes](/docs/attributes/)).
+- **Small.** The core is 12.6 KB minified, 4.9 KB gzip — Embla's is 17.9 KB / 7.2 KB. Each part is its own module.
+
+## Why native scroll
+
+Embla — and most carousels — move a track with `transform` and rebuild scrolling in JavaScript: the drag, the momentum, the snapping. That was the dependable way when they were written: `scroll-snap` was uneven across browsers, Safari's smooth scrolling came late, there was no `scrollend` event. Today the browser does all of it, and does it better where it matters most: under a finger.
+
+| | Native scroll (Spill) | Transform (Embla) |
+|---|---|---|
+| A finger's momentum, iOS bounce | **The browser's own** | Imitated |
+| Trackpad, shift + wheel | **Works** | Needs a plugin |
+| Mouse drag | Spill does it | **Built in** |
+| The keyboard's focus brings a slide in | **By itself** | Handled separately |
+| Find in page reaches a slide | **Yes** | No |
+| Before or without JavaScript | **Scrollable, readable** | A clipped row |
+| Scrolling performance | **On the compositor** | Main thread while dragging |
+| Snapping | **CSS scroll snap** | JS physics |
+| Scroll-driven effects | **CSS `animation-timeline`** | JS |
+| Lazy images | **`loading="lazy"`** | Separately |
+| Seamless infinite loop | Not here | **Natural** |
+| Duration and easing of programmatic moves | Spill animates it (`duration`) | **Full control** |
+| Code | **Smaller** (the browser does the work) | Larger |
+
+<Callout title="No loop">
+  A seamless infinite loop needs the slides moved around behind the user's back — natural with a transform, a fight with a real scroll position. Spill leaves it out. Autoplay goes back to the first snap at the end instead.
+</Callout>
+
+## How it works
+
+You give Spill the **viewport** — the box that scrolls. Its first child is the **container**, and the container's children are the **slides**:
+
+```html
+<div class="viewport">         <!-- the box that scrolls: Spill(viewport, …) -->
+  <div class="container">      <!-- its first child (or options.container) -->
+    <div class="slide">…</div> <!-- the container's children (or options.slides) -->
+  </div>
+</div>
+```
+
+Spill measures the slides and groups them into **snaps** — the places the carousel comes to rest. It writes CSS snap points on each snap's first slide, so a finger or a trackpad stops exactly there, natively. A mouse drags it, buttons call `scrollNext()` and `scrollPrev()`, and every move is reported as an event: `select` when the selected snap changes, `scroll` as it scrolls, `settle` when it comes to rest.
+
+## Where next
+
+- [Installation](/docs/installation/) — npm, a `<script>` tag, ES modules.
+- [Quick start](/docs/quick-start/) — a carousel in a few lines.
+- [By attributes](/docs/attributes/) — a carousel with no script of your own.
+- [Examples](/examples/) — each one live, with its code.

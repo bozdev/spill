@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spill — test stage</title>
+    <style>
+      body {
+        margin: 0;
+        font: 14px/1.4 system-ui, sans-serif;
+      }
+      .viewport {
+        width: 600px;
+      }
+      .row {
+        display: flex;
+      }
+      .slide {
+        flex: 0 0 200px;
+        height: 120px;
+        box-sizing: border-box;
+        border: 1px solid #999;
+      }
+      .percent .slide {
+        flex-basis: 70%;
+      }
+      .vertical .viewport {
+        width: 200px;
+        height: 300px;
+      }
+      .vertical .row {
+        flex-direction: column;
+      }
+      .vertical .slide {
+        flex: 0 0 100px;
+      }
+      .heights .row {
+        align-items: flex-start;
+      }
+      .heights .slide:nth-child(2) {
+        height: 220px;
+      }
+      .is-disabled,
+      [data-spill-disabled] {
+        opacity: 0.3;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="stage"></main>
+    <script type="module">
+      import { Spill, Autoplay, ClassNames, AutoHeight, SpillAuto } from "../src/index.js";
+      SpillAuto.plugins = { autoplay: Autoplay, "class-names": ClassNames, "auto-height": AutoHeight };
+      Object.assign(window, { Spill, Autoplay, ClassNames, AutoHeight, SpillAuto });
+      /** A carousel's markup: n slides, each with a link; `wrap` puts a class on a wrapper */
+      window.slides = (count, wrap = "") =>
+        `<div class="${wrap}"><div class="viewport" id="viewport"><div class="row" id="row">${Array.from({ length: count }, (_, index) => `<div class="slide" id="s${index}"><a href="#go-${index}" id="a${index}">Slide ${index + 1}</a></div>`).join("")}</div></div></div>`;
+      /** The stage filled, a carousel built on it: its API (window.api) and every event it emitted (window.seen) */
+      window.mount = (options = {}, plugins = [], count = 10, wrap = "") => {
+        window.api?.destroy();
+        document.querySelector("#stage").innerHTML = window.slides(count, wrap);
+        window.seen = [];
+        const api = Spill(document.querySelector("#viewport"), options, plugins);
+        for (const name of ["init", "reInit", "destroy", "select", "scroll", "settle", "resize", "slidesInView", "slidesChanged", "slideFocus", "slideFocusStart", "pointerDown", "pointerUp"]) api.on(name, () => window.seen.push(name));
+        window.api = api;
+        return true;
+      };
+      window.ready = true;
+    </script>
+  </body>
+</html>

@@ -1,0 +1,145 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Breakpoints
+description: Other options at other sizes, or no carousel at all — the breakpoints option maps media queries to options, and the carousel follows as they change.
+---
+
+import Breakpoints from "../../../examples/breakpoints/index.astro";
+import Callout from "../../../components/Callout.astro";
+
+`breakpoints` maps media queries to options. While a query matches, its options are merged over the rest. When one starts or stops matching, the carousel is rebuilt with the options that match now.
+
+```js
+Spill(viewport, {
+  align: "start",
+  breakpoints: {
+    "(min-width: 640px)": { slidesToScroll: 2 },
+    "(min-width: 1024px)": { slidesToScroll: 3 },
+    "(min-width: 1440px)": { active: false },
+  },
+});
+```
+
+<Breakpoints />
+
+Resize the window to try it. Under 640px each slide is a snap. From 640px two slides make one snap, and from 1024px three. From 1440px Spill steps aside, and the CSS lays the slides out as a grid. Watch the dots: they're rebuilt for the new snaps each time.
+
+## How queries combine
+
+- **Any media query.** Each key goes to `matchMedia`, so `(orientation: landscape)` or `(prefers-reduced-motion: reduce)` work as well as widths. Width queries follow the window, not the carousel's own width.
+- **In the order you write them.** Every query that matches is merged in turn, so where two set the same option, the later one wins. Write `min-width` queries from small to large.
+- **Only what they name.** An option a query doesn't name keeps the value from the rest of the options.
+
+## The layout is your CSS
+
+Spill never sets a slide's size. A breakpoint changes how Spill behaves: how many slides a move takes, the alignment, dragging. Your CSS's media queries change the layout. Use the same queries in both:
+
+```css
+.slide { flex: 0 0 100%; min-width: 0; }
+
+@media (min-width: 640px) {
+  .slide { flex-basis: calc((100% - 1rem) / 2); }
+}
+
+@media (min-width: 1024px) {
+  .slide { flex-basis: calc((100% - 2 * 1rem) / 3); }
+}
+```
+
+<Callout kind="tip" title="Only the number in view changes?">
+  `slidesToScroll: "auto"` makes one snap of as many slides as fit in view, measured from your CSS. It follows your media queries with no breakpoints at all.
+</Callout>
+
+## Switching a carousel off
+
+`active: false` turns Spill off. It takes back every inline style and attribute it wrote, removes its listeners (it still watches the breakpoints, to come back), and takes down its plugins. The elements are plain markup again, and your CSS decides how they look — a grid, a stack, a row that wraps:
+
+```css
+@media (min-width: 1440px) {
+  .container {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .controls { display: none; }
+}
+```
+
+The API stays. While the carousel is off, `scrollSnapList()` and `slideNodes()` are empty, `containerNode()` is `null`, `canScrollPrev()` and `canScrollNext()` are `false`, and `scrollTo()`, `scrollPrev()` and `scrollNext()` do nothing. Dots built from `scrollSnapList()` on `reInit` go away by themselves, and come back when the query stops matching and the carousel is built again.
+
+By attributes, breakpoints go in the same JSON as the other options:
+
+```html
+<section data-spill-carousel='{"align":"start","breakpoints":{"(min-width: 1440px)":{"active":false}}}'>
+  …
+</section>
+```
+
+## When a query starts or stops matching
+
+Spill watches every query it was given: in the carousel's options, in `Spill.globalOptions`, and in the options passed to each plugin. When one of them starts or stops matching:
+
+1. The carousel is taken down: its plugins' `destroy()`, its listeners, everything it wrote.
+2. It's built again with the options that match now, and each plugin is initialized again with its own.
+3. It starts on the snap it was on, as `reInit()` does — or on the last one, if there are fewer snaps now.
+4. `reInit` fires. Your buttons and dots catch up there, as they do for a new size.
+
+`init` and `destroy` don't fire. The API object stays the same, and so do your listeners on it.
+
+It's the snap's index that's kept, not its slides. The second of six single-slide snaps becomes the second of three two-slide snaps: slides 3 and 4.
+
+The plugins start over. Autoplay, for one, plays again if `playOnInit` is on, even if it was stopped before.
+
+A new size inside the same query is different. When the viewport or a slide changes size along the axis, by half a pixel or more, Spill only measures again, then fires `reInit` and `resize`, and the plugins stay as they are.
+
+## Global options
+
+`Spill.globalOptions` sits under every carousel's own options: a default for the whole site.
+
+```js
+import Spill from "@bozdev/spill";
+
+Spill.globalOptions = {
+  align: "start",
+  duration: 30,
+  breakpoints: { "(min-width: 1024px)": { slidesToScroll: "auto" } },
+};
+```
+
+Spill reads it each time a carousel is built or rebuilt, so set it before you build any. A carousel's own options go over it, its own breakpoints included, and the global breakpoints are watched like a carousel's own. The plugins have the same: `Autoplay.globalOptions`, `ClassNames.globalOptions` and `AutoHeight.globalOptions`.
+
+With attributes, `@bozdev/spill/auto` starts building carousels as soon as it runs (or once the page is parsed), so options set after it may come too late. Start the attributes layer yourself instead:
+
+```js
+import { Spill, SpillAuto, Autoplay } from "@bozdev/spill";
+
+Spill.globalOptions = { duration: 30 };
+SpillAuto.plugins = { autoplay: Autoplay };
+SpillAuto.start();
+```
+
+## Plugins' own breakpoints
+
+Each plugin takes `breakpoints` in its own options, in the same shape, merged over that plugin's options:
+
+```js
+import Spill from "@bozdev/spill";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+import AutoHeight from "@bozdev/spill/plugins/auto-height";
+
+Spill(viewport, { align: "start" }, [
+  Autoplay({ delay: 5000, breakpoints: { "(prefers-reduced-motion: reduce)": { active: false } } }),
+  AutoHeight({ breakpoints: { "(min-width: 1024px)": { active: false } } }),
+]);
+```
+
+The carousel watches these queries along with its own. When one changes, the whole carousel is rebuilt as above, and each plugin reads its options again.
+
+By attributes, they go in the plugin's own attribute:
+
+```html
+<section data-spill-carousel data-spill-plugins="autoplay"
+  data-spill-autoplay='{"breakpoints":{"(prefers-reduced-motion: reduce)":{"active":false}}}'>
+  …
+</section>
+```

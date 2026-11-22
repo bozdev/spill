@@ -1,0 +1,190 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Buttons and dots
+description: Spill draws no controls — you build previous and next buttons, dots and a progress bar from the API in a few lines, or let attributes build them.
+---
+
+import Basic from "../../../examples/basic/index.astro";
+import Progress from "../../../examples/progress/index.astro";
+import Callout from "../../../components/Callout.astro";
+
+<Basic />
+
+The [Basic](/examples/#basic) example: two buttons and a dot for each snap, wired to the API. Each piece is below, then the same controls written as attributes.
+
+## Previous and next
+
+`scrollPrev()` and `scrollNext()` move one snap back or forward. `canScrollPrev()` and `canScrollNext()` say whether there's a snap to go to, so a button can turn off at an edge.
+
+```js
+const prev = root.querySelector(".prev");
+const next = root.querySelector(".next");
+
+prev.addEventListener("click", () => api.scrollPrev());
+next.addEventListener("click", () => api.scrollNext());
+
+const toggleButtons = () => {
+  prev.disabled = !api.canScrollPrev();
+  next.disabled = !api.canScrollNext();
+};
+
+api.on("init", toggleButtons).on("select", toggleButtons).on("reInit", toggleButtons);
+```
+
+Three events keep the buttons right:
+
+- `init` — the carousel is built. It fires on the next task, so a listener added right after `Spill()` hears it.
+- `select` — the selected snap changed: a button, a dot, a mouse's drag, or a hand's scroll as soon as another snap is the nearest.
+- `reInit` — the carousel was rebuilt: a new size, a [breakpoint](/docs/guides/breakpoints/), slides added or removed. The snaps may have changed with it.
+
+Both checks follow the selected snap, not the scroll position, and both are `false` while the carousel is off (`active: false`). A move is one snap, which can be several slides with `slidesToScroll`. Pass `true` to jump without the animation: `scrollNext(true)`.
+
+### `disabled` or `aria-disabled`
+
+The Basic example sets `disabled`. It's the simplest: the browser skips the button and ignores its clicks. But a focused button that becomes `disabled` loses its focus, so a keyboard user who presses Next up to the last slide loses their place.
+
+`aria-disabled="true"` keeps the button in the tab order and still tells assistive technology it's off. It doesn't stop clicks, so check it in the handler:
+
+```js
+const toggleButtons = () => {
+  prev.setAttribute("aria-disabled", String(!api.canScrollPrev()));
+  next.setAttribute("aria-disabled", String(!api.canScrollNext()));
+};
+
+prev.addEventListener("click", () => {
+  if (prev.getAttribute("aria-disabled") !== "true") api.scrollPrev();
+});
+next.addEventListener("click", () => {
+  if (next.getAttribute("aria-disabled") !== "true") api.scrollNext();
+});
+```
+
+```css
+.prev:disabled,
+.next:disabled,
+.prev[aria-disabled="true"],
+.next[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: default;
+}
+```
+
+The attributes layer works this way: `aria-disabled` at an edge, plus a `data-spill-disabled` attribute to style.
+
+## Dots
+
+`scrollSnapList()` returns one number for each snap: its place, from 0 at the start to 1 at the end. For dots, only the count matters. Make a button for each, and send a click to `scrollTo(index)`.
+
+```js
+const dots = root.querySelector(".dots");
+
+const buildDots = () => {
+  dots.replaceChildren(
+    ...api.scrollSnapList().map((_, index) => {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.setAttribute("aria-label", `Go to slide ${index + 1}`);
+      dot.addEventListener("click", () => api.scrollTo(index));
+      return dot;
+    }),
+  );
+};
+
+const selectDot = () => {
+  const selected = api.selectedScrollSnap();
+  [...dots.children].forEach((dot, index) => dot.setAttribute("aria-current", String(index === selected)));
+};
+
+const refresh = () => {
+  buildDots();
+  selectDot();
+};
+
+api.on("init", refresh).on("reInit", refresh).on("select", selectDot);
+```
+
+- **Build them on `init` and `reInit`.** The number of snaps isn't fixed. A new size, a breakpoint, or a slide added or removed can change it, and each of these ends in `reInit`.
+- **Mark the selected one on `select`.** `aria-current="true"` tells assistive technology which dot is current, and gives your CSS its hook: `.dots > [aria-current="true"]`.
+- **Label them.** A dot is a button with no text, so its `aria-label` says where it goes. With `slidesToScroll` above 1 a dot stands for several slides, and "Go to page 2" may read better.
+
+## A progress bar
+
+`scrollProgress()` says where the scroll is: 0 at the start, 1 at the end. Read it on `scroll`, which Spill fires once a frame however the carousel moves — a finger, a trackpad, a mouse's drag or a button.
+
+<Progress />
+
+```js
+const bar = root.querySelector(".progress-bar");
+
+const showProgress = () => bar.style.setProperty("--progress", String(api.scrollProgress()));
+
+api.on("init", showProgress).on("reInit", showProgress).on("scroll", showProgress);
+```
+
+```css
+.progress {
+  height: 0.3rem;
+  overflow: hidden;
+  background: #ddd;
+}
+
+.progress-bar {
+  height: 100%;
+  background: currentColor;
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+}
+```
+
+The bar changes on every frame of a scroll. A scale, unlike a width, lays nothing out again. `reInit` matters here too: a new size changes how far the carousel can scroll. When nothing overflows, `scrollProgress()` is 0. In a right-to-left carousel, set `transform-origin: right`.
+
+The example's bar has `aria-hidden="true"`: it only repeats what the scroll position already shows.
+
+## By attributes
+
+With the attributes layer, the same controls are markup. Mark the elements, load `@bozdev/spill/auto`, and it wires them: inside the carousel, or anywhere on the page with `data-spill-for`.
+
+```html
+<section id="gallery" data-spill-carousel='{"align":"start"}' aria-label="Gallery">
+  <div class="viewport" data-spill-viewport>
+    <div class="container">…</div>
+  </div>
+  <button type="button" data-spill-prev>…</button>
+  <button type="button" data-spill-next>…</button>
+  <div class="dots" data-spill-dots></div>
+  <div class="progress" data-spill-progress><span></span></div>
+</section>
+
+<button type="button" data-spill-next data-spill-for="gallery">Next</button>
+```
+
+```js
+import "@bozdev/spill/auto";
+```
+
+| Attribute | What you get |
+|---|---|
+| `data-spill-prev`, `data-spill-next` | A click moves one snap. At an edge, `aria-disabled="true"` and `data-spill-disabled`, and a click there does nothing. An `aria-label` ("Previous slide", "Next slide") unless the button has one |
+| `data-spill-dots` | Filled with a button for each snap and rebuilt on `reInit`. Each has `data-spill-dot` (its index) and an `aria-label`; the selected one has `aria-current="true"`. `data-spill-dots="number"` puts the numbers in them |
+| `data-spill-progress` | A `--spill-progress` CSS variable, from 0 to 1, kept up to date as it scrolls |
+| `data-spill-to="3"` | A click goes to the third snap |
+| `data-spill-for="gallery"` | Ties a control outside the carousel to it, by the carousel's `id` |
+
+```css
+[data-spill-disabled] { opacity: 0.35; }
+[data-spill-dots] > [aria-current="true"] { background: currentColor; }
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transform: scaleX(var(--spill-progress, 0));
+  transform-origin: left;
+}
+```
+
+The variable is set on the element with `data-spill-progress` and inherited, so the bar can be a child of it.
+
+<Callout title="More by attributes">
+  A `data-spill-play` button turns Autoplay on and off, and the labels can be in your site's language. [By attributes](/docs/attributes/) has all of it.
+</Callout>

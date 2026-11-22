@@ -1,0 +1,88 @@
+{
+  "name": "@bozdev/spill",
+  "version": "0.1.0",
+  "description": "A carousel on the browser's own scroll: Embla Carousel's API, options, events and plugins — native scroll underneath, no dependencies, no stylesheet.",
+  "keywords": [
+    "carousel",
+    "slider",
+    "scroll",
+    "native-scroll",
+    "scroll-snap",
+    "embla",
+    "embla-carousel",
+    "vanilla",
+    "no-dependencies",
+    "accessible"
+  ],
+  "homepage": "https://spill.bozdev.com",
+  "bugs": {
+    "url": "https://github.com/bozdev/spill/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bozdev/spill.git"
+  },
+  "license": "MIT",
+  "author": "bozdev (https://bozdev.com)",
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "types": "./types/index.d.ts",
+  "unpkg": "./dist/spill.global.js",
+  "jsdelivr": "./dist/spill.global.js",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./core": {
+      "types": "./types/spill.d.ts",
+      "default": "./src/spill.js"
+    },
+    "./auto": {
+      "types": "./types/auto.d.ts",
+      "default": "./src/auto.js"
+    },
+    "./attributes": {
+      "types": "./types/attributes.d.ts",
+      "default": "./src/attributes.js"
+    },
+    "./plugins/autoplay": {
+      "types": "./types/plugins/autoplay.d.ts",
+      "default": "./src/plugins/autoplay.js"
+    },
+    "./plugins/class-names": {
+      "types": "./types/plugins/class-names.d.ts",
+      "default": "./src/plugins/class-names.js"
+    },
+    "./plugins/auto-height": {
+      "types": "./types/plugins/auto-height.d.ts",
+      "default": "./src/plugins/auto-height.js"
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "types",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "./src/auto.js",
+    "./dist/spill.auto.js",
+    "./dist/spill.global.js"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs && tsc -p tsconfig.json",
+    "types": "tsc -p tsconfig.json",
+    "demo": "node tests/server.mjs",
+    "test": "playwright test",
+    "site": "npm --prefix site run dev"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "esbuild": "0.28.2",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,0 +1,28 @@
+/* Narrower slides: more of the smaller ones shows */
+.carousel--scale {
+  --slide-size: 60%;
+}
+
+/* The viewport really scrolls, so CSS alone can follow it: a scroll-driven animation. view(inline) is the card's way
+   across the viewport — 0% as it comes in at one edge, 50% in the middle, 100% as it leaves at the other — and the
+   card scales along it. The card, not the slide: Spill measures the slides where they're drawn. Without support, or
+   with reduced motion, every card simply stays full size. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .carousel--scale .carousel__card {
+      animation: carousel-scale linear both;
+      animation-timeline: view(inline);
+    }
+
+    @keyframes carousel-scale {
+      0%,
+      100% {
+        scale: 0.75;
+      }
+
+      50% {
+        scale: 1;
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+/* The log: six lines, a fixed height — a new line never moves the page */
+.carousel--events .carousel__log {
+  display: grid;
+  grid-auto-rows: 1.5rem;
+  box-sizing: border-box;
+  height: 10.5rem;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  overflow: hidden;
+  border-radius: 1rem;
+  list-style: none;
+  font: 0.8rem/1.5rem var(--font-mono, monospace);
+  color: var(--muted, #a0a0aa);
+  background: var(--surface-2, #18181c);
+}
+
+.carousel--events .carousel__log li {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.carousel--events .carousel__log-name {
+  flex: 0 0 15ch;
+  color: var(--accent-text, #b39af7);
+}
+
+.carousel--events .carousel__log-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.carousel--events .carousel__log-count {
+  margin-left: auto;
+}
+
+/* The newest line stands out; the older ones fade */
+.carousel--events .carousel__log li:first-child {
+  color: var(--text, #e6e6ec);
+}
+
+.carousel--events .carousel__log li:nth-child(n + 4) {
+  opacity: 0.6;
+}

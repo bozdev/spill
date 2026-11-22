@@ -1,0 +1,214 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Accessibility and motion
+description: A Spill carousel is a real scrolling box that the keyboard, find in page and screen readers already understand, and this page covers the rest — names, buttons at the edges, reduced motion and Autoplay.
+---
+
+import Callout from "../../../components/Callout.astro";
+
+Spill never moves slides with a `transform`, and it never hides the slides that are out of view. The viewport is a box that really scrolls, and every slide stays in the page. A keyboard reaches each one, a screen reader reads each one, and find in page finds each one. Much of a carousel's accessibility comes from that alone. The rest — names and roles, buttons at the edges, motion and Autoplay — is on this page.
+
+## A real scrolling box
+
+- **Tab reaches every slide.** Links, buttons and fields in every slide stay in the tab order. Spill sets no `inert`, `aria-hidden` or `tabindex` on the slides out of view.
+- **Focus brings a slide into view.** When focus moves to something in a slide you can't see, the browser scrolls it in, as in any scrolling box.
+- **`watchFocus` settles the snap.** Spill then moves to the snap that holds that slide, so the carousel comes to rest aligned. You hear `slideFocusStart`, then `select` if the snap changed, then `slideFocus`.
+- **Find in page and screen readers** reach every slide, in the order of the markup.
+
+`watchFocus` is on by default. Set it to `false` to leave a focus to the browser alone, or to a function `(api, event)` that returns `true` when Spill should move to the slide's snap.
+
+<Callout kind="tip" title="Keep every slide reachable">
+  Some carousels put `aria-hidden` or `inert` on the slides you can't see. Don't: here focus brings a slide into view, so every slide should stay in reach of the keyboard and the screen reader.
+</Callout>
+
+## Names and roles
+
+Spill's core writes no ARIA: a carousel you build by hand has the semantics you give it. A carousel built [by attributes](/docs/attributes/) gets the usual carousel pattern from `SpillAuto`.
+
+### By attributes
+
+| Element | What `SpillAuto` writes |
+|---|---|
+| The carousel (`data-spill-carousel`) | `role="region"`, `aria-roledescription="carousel"`, and `aria-label="Carousel"` when it has neither `aria-label` nor `aria-labelledby` |
+| Each slide | `role="group"`, `aria-roledescription="slide"`, `aria-label="1 of 5"` (its number, and the number of slides) |
+| Previous and next (`data-spill-prev`, `data-spill-next`) | `aria-label="Previous slide"` and `"Next slide"`, and `aria-disabled` ([below](#previous-and-next-at-the-edges)) |
+| Each dot it adds to `data-spill-dots` | A `<button type="button">` with `aria-label="Go to slide 3"`; `aria-current="true"` on the selected one |
+| Play (`data-spill-play`) | `aria-label="Autoplay"`, and `aria-pressed="true"` while it plays |
+
+Your own attributes win. `SpillAuto` writes a role or a label only where the element has none, and when the carousel is taken down it removes only what it wrote. Two things are still yours to do:
+
+- **Name the carousel.** "Carousel" is only a fallback. Give it `aria-label="Featured products"`, or `aria-labelledby` pointing at its heading.
+- **Use the page's language.** The labels come from `SpillAuto.words`. Set them before the carousels are built.
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+
+SpillAuto.words = {
+  carousel: "Carrusel",
+  carouselRole: "carrusel",
+  slideRole: "diapositiva",
+  slide: "{0} de {1}",
+  prev: "Diapositiva anterior",
+  next: "Diapositiva siguiente",
+  goTo: "Ir a la diapositiva {0}",
+  autoplay: "Reproducción automática",
+};
+SpillAuto.start();
+```
+
+`{0}` and `{1}` stand for the numbers. `@bozdev/spill/auto` starts as soon as it loads, so to set the words first, import `@bozdev/spill/attributes` and call `SpillAuto.start()` yourself ([Modules and bundles](/docs/guides/modules/)).
+
+`data-spill-aria="false"` on the carousel turns off the roles and labels on the carousel and its slides. The controls still get their labels.
+
+### By hand
+
+Write the same pattern into your markup:
+
+```html
+<section class="carousel" aria-roledescription="carousel" aria-label="Featured products">
+  <div class="carousel__viewport">
+    <div class="carousel__container">
+      <div class="carousel__slide" role="group" aria-roledescription="slide" aria-label="1 of 3">…</div>
+      <div class="carousel__slide" role="group" aria-roledescription="slide" aria-label="2 of 3">…</div>
+      <div class="carousel__slide" role="group" aria-roledescription="slide" aria-label="3 of 3">…</div>
+    </div>
+  </div>
+  <button class="carousel__prev" type="button" aria-label="Previous slide">…</button>
+  <button class="carousel__next" type="button" aria-label="Next slide">…</button>
+</section>
+```
+
+A `<section>` with a name is a region already, so it needs no `role`. If slides come and go, number them again on `reInit` — Spill fires it after slides are added or removed:
+
+```js
+const number = () => {
+  const slides = api.slideNodes();
+  slides.forEach((slide, index) => slide.setAttribute("aria-label", `${index + 1} of ${slides.length}`));
+};
+api.on("reInit", number);
+```
+
+## Previous and next at the edges
+
+At the first snap there's nothing before, and at the last there's nothing after. Mark the button with `aria-disabled="true"` there, not with the `disabled` attribute. A `disabled` button can't keep focus: a keyboard user who presses Next until the end loses their place. An `aria-disabled` button keeps its focus, and a screen reader announces it as unavailable.
+
+`SpillAuto` does this for you. It sets `aria-disabled` to `"true"` or `"false"` on every previous and next button, adds `data-spill-disabled` at an edge, and ignores a click while the button is disabled. By hand:
+
+```js
+const prev = root.querySelector(".carousel__prev");
+const next = root.querySelector(".carousel__next");
+
+prev.addEventListener("click", () => api.scrollPrev());
+next.addEventListener("click", () => api.scrollNext());
+
+// Off at the edges, focus kept
+const edges = () => {
+  prev.setAttribute("aria-disabled", String(!api.canScrollPrev()));
+  next.setAttribute("aria-disabled", String(!api.canScrollNext()));
+};
+edges();
+api.on("select", edges).on("reInit", edges);
+```
+
+There's no snap past an edge, so there `scrollPrev()` and `scrollNext()` stay put, and a guard in the click handler is optional ([Buttons and dots](/docs/guides/buttons-and-dots/) shows one). Style the state from the attribute:
+
+```css
+.carousel__prev[aria-disabled="true"],
+.carousel__next[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}
+```
+
+## Reduced motion
+
+When the user's system asks for less motion (`prefers-reduced-motion: reduce`), every move Spill makes jumps instead of animating: `scrollNext()`, `scrollPrev()` and `scrollTo()`, the move to a focused slide's snap, Autoplay's steps, and the glide to a snap after a mouse drag. Spill checks the setting at each move, so a change applies at once, with no reload. Scrolling with a finger or a trackpad is the browser's own.
+
+Two things are left to you.
+
+**Your own effects.** Transitions and animations in your CSS — AutoHeight's `transition: height`, scroll-driven effects on the slides — need their own media query:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .carousel__container {
+    transition: none;
+  }
+}
+```
+
+**Autoplay itself.** It keeps playing, its steps jumping. To not start it for these users, pass `playOnInit: false`. They can still press play.
+
+```js
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const api = Spill(viewport, { align: "start" }, [Autoplay({ playOnInit: !still })]);
+```
+
+## Autoplay and WCAG 2.2.2
+
+WCAG's success criterion 2.2.2, *Pause, Stop, Hide* (level A), asks that content that moves or updates on its own for more than five seconds, next to other content, can be paused, stopped or hidden. A carousel that turns its own slides is exactly that.
+
+Autoplay already stops when it would get in the way:
+
+| When | Option (default) | What happens |
+|---|---|---|
+| Focus moves into it | `stopOnFocusIn` (`true`) | It stops, and stays stopped until something plays it again — the slide you're on doesn't move away |
+| A press on the viewport — mouse, pen or finger | `stopOnInteraction` (`true`) | It stops, and stays stopped |
+| The mouse is over it | `stopOnMouseEnter` (`false`) | It stops, and starts again when the mouse leaves — if it was playing when the mouse came in, and no press (`stopOnInteraction`) or focus (`stopOnFocusIn`) came while the mouse was over it |
+| The page is hidden — another tab, a minimized window | Always | Its timer stops, and starts again when the page shows |
+
+The mouse and the focus are watched on the viewport. To count the carousel's buttons too, point `rootNode` at the whole carousel:
+
+```js
+Autoplay({ rootNode: (viewport) => viewport.closest(".carousel") });
+```
+
+### A play button
+
+These pauses help, but none of them is a control you can find: there's no hover on a touch screen, and a stop on focus can't be seen. Give every carousel that plays by itself a play and pause button.
+
+By attributes, a `data-spill-play` button toggles Autoplay. `SpillAuto` labels it "Autoplay" and keeps `aria-pressed` in step:
+
+```html
+<button type="button" data-spill-play>…</button>
+```
+
+By hand, toggle the plugin and follow its `autoplay:play` and `autoplay:stop` events. A rebuild — `reInit()`, a breakpoint that starts or stops matching, slides added or removed — starts the plugins again, and Autoplay plays again with `playOnInit`. If the user paused it, keep it paused:
+
+```js
+const play = root.querySelector(".carousel__play");
+let paused = false; // the user's choice, kept across rebuilds
+
+const pressed = () => play.setAttribute("aria-pressed", String(!!api.plugins().autoplay?.isPlaying()));
+
+play.addEventListener("click", () => {
+  const autoplay = api.plugins().autoplay;
+  if (!autoplay) return;
+  paused = autoplay.isPlaying();
+  if (paused) autoplay.stop();
+  else autoplay.play();
+});
+
+api.on("autoplay:play", pressed).on("autoplay:stop", pressed);
+api.on("reInit", () => {
+  if (paused) api.plugins().autoplay?.stop();
+  pressed();
+});
+pressed();
+```
+
+With `aria-label="Autoplay"` on it, a screen reader announces a toggle button that's pressed or not. If `rootNode` takes in the play button, tabbing to it stops Autoplay; pressing it plays again.
+
+See it working in the [attributes](/examples/#attributes) and [Autoplay](/examples/#autoplay) examples.
+
+## A checklist
+
+- Name each carousel: `aria-label`, or `aria-labelledby` pointing at its heading.
+- Use real `<button type="button">` elements for every control, with an `aria-label` when a button holds only an icon.
+- Turn previous and next off at the edges with `aria-disabled`, not `disabled`.
+- Label each dot ("Go to slide 3") and mark the selected one with `aria-current="true"`.
+- Keep every slide reachable: no `aria-hidden`, `inert` or `tabindex="-1"` on the slides out of view.
+- Show focus clearly, on the controls and on the links inside slides.
+- With Autoplay: a play and pause button, a `delay` long enough to read a slide, and `playOnInit: false` under reduced motion if you'd rather not start it.
+- Put your own transitions and scroll effects under `prefers-reduced-motion`.
+- Translate `SpillAuto.words` on a page that isn't in English.
+- Try the carousel with the keyboard alone, and with a screen reader.

@@ -1,0 +1,30 @@
+/* The slides per view are the CSS's; the script's breakpoints use the same media queries */
+.carousel--breakpoints {
+  --slide-height: 10rem;
+  --slide-size: 100%; /* a phone: one slide per view */
+}
+
+@media (min-width: 640px) {
+  .carousel--breakpoints {
+    --slide-size: calc((100% - var(--slide-spacing)) / 2); /* a tablet: two */
+  }
+}
+
+@media (min-width: 1024px) {
+  .carousel--breakpoints {
+    --slide-size: calc((100% - 2 * var(--slide-spacing)) / 3); /* a desktop: three */
+  }
+}
+
+/* From 1440px the carousel is off (active: false): Spill has taken back everything it wrote, so this CSS alone lays
+   the slides out — a grid, and no controls */
+@media (min-width: 1440px) {
+  .carousel--breakpoints .carousel__container {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .carousel--breakpoints .carousel__controls {
+    display: none;
+  }
+}

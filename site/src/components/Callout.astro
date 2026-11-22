@@ -1,0 +1,8 @@
+---
+// A note in the text: kind "note" (default), "tip" or "warning"; an optional title
+const { kind = "note", title } = Astro.props;
+---
+<div class="callout" data-kind={kind} role="note">
+  {title && <p class="callout-title">{title}</p>}
+  <slot />
+</div>

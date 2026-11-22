@@ -1,0 +1,5 @@
+{
+  "title": "Breakpoints",
+  "description": "One slide per view on a phone, two on a tablet, three on a desktop, and from 1440px Spill steps aside for a grid. Resize the window to try it: the dots follow each change.",
+  "order": 9
+}

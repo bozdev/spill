@@ -1,0 +1,5 @@
+{
+  "title": "Variable widths",
+  "description": "Slides of different widths, each its own snap and centered when it's selected (the first and the last held to the edges) — Spill reads the sizes from your CSS.",
+  "order": 6
+}

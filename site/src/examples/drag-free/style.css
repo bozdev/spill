@@ -1,0 +1,5 @@
+/* Smaller slides: a long row to throw */
+.carousel--drag-free {
+  --slide-size: 40%;
+  --slide-height: 10rem;
+}

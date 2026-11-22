@@ -1,0 +1,13 @@
+/* Two slides in view; three once the carousel is wide enough (a container query: the carousel's width, not the
+   window's). Spill only reads these sizes — with slidesToScroll "auto" its snaps follow them. */
+.carousel--slides-to-scroll {
+  --slide-size: calc((100% - var(--slide-spacing)) / 2);
+  --slide-height: 9rem;
+  container-type: inline-size;
+}
+
+@container (min-width: 32rem) {
+  .carousel--slides-to-scroll .carousel__slide {
+    --slide-size: calc((100% - 2 * var(--slide-spacing)) / 3);
+  }
+}

@@ -1,0 +1,15 @@
+---
+layout: ../../layouts/Docs.astro
+title: Changelog
+description: What changed in each release of Spill.
+---
+
+import { Content as Changelog } from "../../../../CHANGELOG.md";
+
+This page shows the repository's `CHANGELOG.md`. Each release is also on [GitHub's releases page](https://github.com/bozdev/spill/releases).
+
+<style>{".changelog > h1:first-child { display: none; }"}</style>
+
+<div class="changelog">
+  <Changelog />
+</div>

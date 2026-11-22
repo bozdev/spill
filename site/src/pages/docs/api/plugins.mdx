@@ -1,0 +1,257 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Plugins
+description: A plugin's shape, the options handler it receives, and a plugin of your own, step by step.
+---
+
+import Callout from "../../../components/Callout.astro";
+
+Plugins are the third argument of `Spill()`: an array, each plugin made by calling its factory. They have Embla's shape, so a plugin that uses only what both have runs on either.
+
+```js
+import Spill from "@bozdev/spill";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+import ClassNames from "@bozdev/spill/plugins/class-names";
+
+const api = Spill(document.querySelector(".viewport"), { align: "start" }, [Autoplay({ delay: 5000 }), ClassNames()]);
+
+api.plugins().autoplay.stop();
+```
+
+## A plugin's shape
+
+A plugin is a plain object:
+
+| Property | |
+|---|---|
+| `name` | Its name: the key it's found under in `api.plugins()`. One plugin of each name per carousel. |
+| `options` | Optional: its options, as given. Spill watches their `breakpoints` and rebuilds the carousel when one starts or stops matching. |
+| `init(api, optionsHandler)` | Called when the carousel is built and on each rebuild, with the carousel's API and the [options handler](#the-options-handler). |
+| `destroy()` | Called when the carousel is taken down — by `destroy()`, and before each rebuild. It undoes what `init()` did. |
+| Anything else | Its own API, reached through `api.plugins()[name]` — Autoplay's `play()`, `stop()` and `isPlaying()`. |
+
+How Spill uses it:
+
+- **One object per carousel.** A factory — `Autoplay(options)` — makes a new plugin each time it's called; don't give one plugin to two carousels.
+- **`init()` runs inside `Spill()`**, once the carousel is measured and before `init` fires. The API is ready: the snaps, the slides, `on()`.
+- **A rebuild** — `reInit()`, a breakpoint, slides added or removed — calls `destroy()`, then `init()` again on the same object. What `init()` adds, `destroy()` must take away, or it's there twice.
+- **A new size isn't a rebuild.** Spill measures again and fires `reInit`, then `resize`; the plugins stay as they are. A plugin that depends on the snaps listens to `reInit`.
+- **An inactive carousel** (`active: false`) starts no plugins, and `api.plugins()` is empty.
+- **The whole API is the plugin's**: it listens with `on()`, fires its own events with `emit()` (named after it, as `autoplay:play`), and reads `internalEngine()` — the options in force, each snap's slides, the snaps' places in pixels.
+
+## The options handler
+
+`init()` gets it as its second argument. It's exported as well, `import { optionsHandler } from "@bozdev/spill"`: three functions, the ones Spill uses for its own options. A plugin's options usually go through two of them first:
+
+```js
+const options = optionsAtMedia(mergeOptions(defaults, userOptions));
+```
+
+### mergeOptions
+
+```ts
+mergeOptions(a: object, b?: object): object
+```
+
+A new object, `b`'s keys over `a`'s. Where both hold a plain object, the two merge key by key — so `breakpoints` merge query by query. Anything else (an array, a function, an element) is replaced. Neither argument changes.
+
+```js
+mergeOptions({ delay: 4000, breakpoints: { "(min-width: 768px)": { delay: 6000 } } }, { delay: 3000 });
+// { delay: 3000, breakpoints: { "(min-width: 768px)": { delay: 6000 } } }
+```
+
+### optionsAtMedia
+
+```ts
+optionsAtMedia(options: object): object
+```
+
+The options with each breakpoint that matches now merged over them, in the order written — a later one wins. When none matches, the options as they are.
+
+```js
+optionsAtMedia({ delay: 3000, breakpoints: { "(min-width: 768px)": { delay: 6000 } } });
+// on a wide screen: { delay: 6000, breakpoints: { … } }
+```
+
+### optionsMediaQueries
+
+```ts
+optionsMediaQueries(list: object[]): MediaQueryList[]
+```
+
+Every breakpoint's media query in a list of options, as `MediaQueryList`s to listen to. Spill already watches the queries in its own options, in `Spill.globalOptions` and in each plugin's `options` — and rebuilds the carousel, the plugins with it, when one starts or stops matching. A plugin needs this only for queries it keeps somewhere else.
+
+```js
+for (const query of optionsMediaQueries([moreOptions])) query.addEventListener("change", update);
+```
+
+## A plugin of your own
+
+A counter, step by step: "2 / 5" — the selected snap and how many there are — written into an element of the page.
+
+### 1. A factory
+
+```js
+export default function Counter(userOptions = {}) {
+  const defaults = { active: true, breakpoints: {}, element: null };
+  let api = null;
+  let target = null;
+
+  // …the plugin, below
+}
+```
+
+Each call makes a new plugin with its own state: one per carousel. `active` and `breakpoints` are the options every built-in plugin has; `element` is this one's own — where the count goes, an element or a selector.
+
+### 2. What it does
+
+```js
+const count = () => `${api.selectedScrollSnap() + 1} / ${api.scrollSnapList().length}`;
+const write = () => {
+  target.textContent = count();
+};
+```
+
+The selected snap, from 1, and the number of snaps.
+
+### 3. Its name and options
+
+```js
+return {
+  name: "counter",
+  options: userOptions,
+  // …
+};
+```
+
+`name` is how `api.plugins().counter` finds it. `options` shows Spill the options as given, so it watches their breakpoints and rebuilds the carousel — this plugin with it — when one starts or stops matching.
+
+### 4. init
+
+```js
+init(carousel, { mergeOptions, optionsAtMedia }) {
+  api = carousel;
+  const options = optionsAtMedia(mergeOptions(defaults, userOptions));
+  if (!options.active) return;
+  target = typeof options.element === "string" ? document.querySelector(options.element) : options.element;
+  if (!target) return;
+  write();
+  api.on("select", write).on("reInit", write);
+},
+```
+
+The defaults, the options given over them, then the breakpoints that match now. Then the first count, and the two events that change it: `select`, and `reInit` — the number of snaps can change with a rebuild or a new size.
+
+### 5. destroy
+
+```js
+destroy() {
+  api?.off("select", write).off("reInit", write);
+  if (target) target.textContent = "";
+  target = null;
+},
+```
+
+Everything `init()` did, undone: the listeners off, the text gone. A rebuild calls `destroy()` and then `init()` again; without the `off()`, each rebuild would add the listeners once more.
+
+### 6. Its own methods
+
+```js
+text: () => (api ? count() : ""),
+```
+
+Whatever else the plugin object holds is its API, through `api.plugins().counter`.
+
+### The whole plugin
+
+```js
+// counter.js — "2 / 5": the selected snap and the number of snaps, written into an element
+export default function Counter(userOptions = {}) {
+  const defaults = { active: true, breakpoints: {}, element: null };
+  let api = null;
+  let target = null;
+
+  const count = () => `${api.selectedScrollSnap() + 1} / ${api.scrollSnapList().length}`;
+  const write = () => {
+    target.textContent = count();
+  };
+
+  return {
+    name: "counter",
+    options: userOptions,
+    init(carousel, { mergeOptions, optionsAtMedia }) {
+      api = carousel;
+      const options = optionsAtMedia(mergeOptions(defaults, userOptions));
+      if (!options.active) return;
+      target = typeof options.element === "string" ? document.querySelector(options.element) : options.element;
+      if (!target) return;
+      write();
+      api.on("select", write).on("reInit", write);
+    },
+    destroy() {
+      api?.off("select", write).off("reInit", write);
+      if (target) target.textContent = "";
+      target = null;
+    },
+    text: () => (api ? count() : ""),
+  };
+}
+```
+
+### Using it
+
+```js
+import Spill from "@bozdev/spill";
+import Counter from "./counter.js";
+
+const api = Spill(document.querySelector(".viewport"), { align: "start" }, [
+  Counter({ element: ".gallery-count", breakpoints: { "(min-width: 1024px)": { active: false } } }),
+]);
+
+api.plugins().counter.text(); // "1 / 5"
+```
+
+## Registering it for attributes
+
+A carousel built [by attributes](/docs/attributes/) names its plugins in `data-spill-plugins`, and SpillAuto finds them in `SpillAuto.plugins` — a name and a factory each. Add yours there, then start SpillAuto:
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+import Counter from "./counter.js";
+
+SpillAuto.plugins = { autoplay: Autoplay, counter: Counter };
+SpillAuto.start();
+```
+
+```html
+<section data-spill-carousel='{"align":"start"}' data-spill-plugins="counter"
+         data-spill-counter='{"element":"#gallery-count"}' aria-label="Gallery">
+  <div class="viewport" data-spill-viewport>
+    <div class="container">…</div>
+  </div>
+  <p id="gallery-count"></p>
+</section>
+```
+
+- The key in `SpillAuto.plugins` is the name `data-spill-plugins` uses, and `data-spill-<key>` holds its options as JSON, handed to the factory. It can differ from the plugin's own `name`: `class-names` builds `classNames`.
+- JSON holds no elements and no functions — that's why `element` takes a selector too.
+- A name SpillAuto doesn't know is skipped, with a warning in the console.
+
+<Callout kind="warning" title="Register before it starts">
+  `@bozdev/spill/auto` registers the three built-in plugins and starts SpillAuto as soon as it's imported, so the carousels on the page are built before your plugin is there. With a plugin of your own, start SpillAuto yourself, as above. With the `<script>` build, load `spill.global.js` (not `spill.auto.js`) and do the same on `Spill.SpillAuto`.
+</Callout>
+
+## The built-in plugins
+
+| Plugin | Import | In `api.plugins()` | In `data-spill-plugins` |
+|---|---|---|---|
+| [Autoplay](/docs/plugins/autoplay/) | `@bozdev/spill/plugins/autoplay` | `autoplay` | `autoplay` |
+| [Class names](/docs/plugins/class-names/) | `@bozdev/spill/plugins/class-names` | `classNames` | `class-names` |
+| [Auto height](/docs/plugins/auto-height/) | `@bozdev/spill/plugins/auto-height` | `autoHeight` | `auto-height` |
+
+- **Autoplay** moves to the next snap every `delay` milliseconds and back to the first at the end; it has methods (`play()`, `stop()`, `reset()`, `isPlaying()`, `timeUntilNext()`) and [events](/docs/api/events/#plugin-events).
+- **Class names** puts classes on the slides and the viewport for the state — the selected snap's slides, the slides in view, a carousel a mouse can drag, and while it's pressed — to style with CSS.
+- **Auto height** makes the container as tall as the selected snap's tallest slide.
+
+Each takes `active` and `breakpoints`, and has `globalOptions` of its own, like `Spill.globalOptions`.

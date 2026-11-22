@@ -1,0 +1,14 @@
+---
+import ExampleFrame from "../../components/ExampleFrame.astro";
+import meta from "./meta.json";
+import html from "./markup.html?raw";
+import css from "./style.css?raw";
+import js from "./script.js?raw";
+import "../base.css";
+import "./style.css";
+const { caption, code = true } = Astro.props;
+---
+{code ? <ExampleFrame slug="hero" title={meta.title} {html} {css} {js} {caption} /> : <Fragment set:html={html} />}
+<script>
+  import "./script.js";
+</script>

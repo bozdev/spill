@@ -1,0 +1,161 @@
+---
+layout: ../../layouts/Docs.astro
+title: Quick start
+description: A carousel step by step — the markup, the CSS, one call, its events, then buttons and dots.
+---
+
+import Basic from "../../examples/basic/index.astro";
+import Callout from "../../components/Callout.astro";
+
+Install Spill first — `npm install @bozdev/spill`, or a `<script>` tag ([Installation](/docs/installation/)). Then build a carousel in five steps.
+
+## The markup
+
+Three levels: a **viewport**, the box that scrolls; its first child, the **container**; and the container's children, the **slides**.
+
+```html
+<div class="viewport">
+  <div class="container">
+    <div class="slide">1</div>
+    <div class="slide">2</div>
+    <div class="slide">3</div>
+    <div class="slide">4</div>
+    <div class="slide">5</div>
+  </div>
+</div>
+```
+
+Any elements will do — a `<ul>` of `<li>`s, a `<section>` of `<figure>`s. The class names are yours; Spill finds the container and the slides by their place (the `container` and `slides` [options](/docs/api/options/) name others).
+
+## The CSS
+
+The look is your CSS, as with Embla. A row of slides, each 80% of the viewport, 1rem apart:
+
+```css
+.viewport { overflow-x: auto; }                     /* before (and without) JavaScript, the row still scrolls */
+.container { display: flex; gap: 1rem; }
+.slide { flex: 0 0 80%; min-width: 0; }
+.viewport[data-spill-draggable] { cursor: grab; }
+.viewport[data-spill-dragging] { cursor: grabbing; }
+```
+
+A slide's `flex-basis` is its size: `100%` shows one at a time, `calc((100% - 2rem) / 3)` three with a 1rem gap. Spill reads the sizes and never sets them, so change them in media queries as you like.
+
+Spill writes what it needs to work inline — the overflow, the snap type, each snap's snap point — and takes it away again on `destroy()`. The two attributes above are hooks it sets for your CSS: `data-spill-draggable` while a mouse can drag the carousel, `data-spill-dragging` while it does. More in [Markup and CSS](/docs/guides/markup-and-css/).
+
+## The call
+
+Give `Spill()` the viewport:
+
+```js
+import Spill from "@bozdev/spill";
+
+const viewport = document.querySelector(".viewport");
+const api = Spill(viewport, { align: "start" });
+```
+
+`Spill(viewport, options, plugins)` builds the carousel and returns its API. The options are Embla's — here `align: "start"` puts each snap at the viewport's start (the default is `"center"`). Plugins come third, in an array: `[Autoplay()]`. With the `<script>` tag, `Spill` is a global: leave out the import.
+
+When the carousel leaves the page, take it down:
+
+```js
+api.destroy();
+```
+
+## Events
+
+The carousel reports what it does. Listen with `on()`:
+
+```js
+api.on("select", () => {
+  console.log("Selected snap:", api.selectedScrollSnap());
+});
+
+api.on("settle", () => console.log("At rest"));
+```
+
+A listener gets the API and the event's name: `(api, eventName)`. `on()` returns the API, so calls chain; `off(event, listener)` removes one. The ones you'll use most:
+
+| Event | When |
+|---|---|
+| `init` | Built — on the next task after `Spill()` returns, so a listener added right after the call hears it |
+| `select` | The selected snap changed |
+| `scroll` | It scrolled (once a frame) |
+| `settle` | It came to rest |
+| `reInit` | Rebuilt: a new size, a breakpoint, slides added or removed, `reInit()` |
+
+Every event is on the [Events](/docs/api/events/) page.
+
+## Buttons and dots
+
+Add the controls to the markup — anywhere, they're plain buttons:
+
+```html
+<div class="carousel">
+  <div class="viewport">…</div>
+  <button class="prev" type="button">Previous</button>
+  <button class="next" type="button">Next</button>
+  <div class="dots"></div>
+</div>
+```
+
+Then wire them to the API:
+
+```js
+const prev = document.querySelector(".prev");
+const next = document.querySelector(".next");
+const dots = document.querySelector(".dots");
+
+prev.addEventListener("click", () => api.scrollPrev());
+next.addEventListener("click", () => api.scrollNext());
+
+// A dot for each snap
+const buildDots = () => {
+  dots.replaceChildren(
+    ...api.scrollSnapList().map((_, index) => {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.setAttribute("aria-label", `Go to slide ${index + 1}`);
+      dot.addEventListener("click", () => api.scrollTo(index));
+      return dot;
+    }),
+  );
+};
+
+// The selected dot marked, the buttons off at the edges
+const update = () => {
+  [...dots.children].forEach((dot, index) => {
+    dot.setAttribute("aria-current", String(index === api.selectedScrollSnap()));
+  });
+  prev.disabled = !api.canScrollPrev();
+  next.disabled = !api.canScrollNext();
+};
+
+const refresh = () => {
+  buildDots();
+  update();
+};
+
+api.on("init", refresh).on("reInit", refresh).on("select", update);
+```
+
+A **snap** is a place the carousel comes to rest. It isn't always one slide: with `slidesToScroll`, or slides that fit together at an edge, one snap can hold several. So the dots follow `scrollSnapList()`, not the slides — and they're built again on `reInit`, since a new size, a breakpoint or a new slide can change the snaps.
+
+Style the selected dot with `[aria-current="true"]`, and the buttons with `:disabled`.
+
+<Callout kind="tip" title="Keep the focus">
+  A `disabled` button loses the keyboard's focus. Set `aria-disabled="true"` instead and ignore its clicks, and a focused button keeps its focus at the edge — the way [By attributes](/docs/attributes/) does it.
+</Callout>
+
+## All together
+
+The same steps, live — with the examples' class names and look. Its code is in the tabs.
+
+<Basic />
+
+## Where next
+
+- [By attributes](/docs/attributes/) — the same carousel with no script of your own: buttons, dots and plugins in the markup.
+- [Options](/docs/api/options/), [Methods](/docs/api/methods/), [Events](/docs/api/events/) and [Plugins](/docs/api/plugins/) — the whole API.
+- [Buttons and dots](/docs/guides/buttons-and-dots/) and [Breakpoints](/docs/guides/breakpoints/) — the guides.
+- [Frameworks](/docs/frameworks/) — React, Vue, Svelte, Solid and Astro.

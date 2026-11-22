@@ -1,0 +1,17 @@
+---
+// Spill's mark: a viewport with its slides — the last one runs past the edge (spills)
+const { title } = Astro.props;
+---
+<svg viewBox="0 0 32 32" fill="none" aria-hidden={title ? undefined : "true"} role={title ? "img" : undefined}>
+  {title && <title>{title}</title>}
+  <defs>
+    <linearGradient id="spill-mark-fill" x1="4" y1="6" x2="30" y2="26" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9368f0" />
+      <stop offset="1" stop-color="#65dda9" />
+    </linearGradient>
+  </defs>
+  <rect x="2.5" y="6.5" width="22" height="19" rx="5" stroke="currentColor" stroke-width="2" opacity="0.9" />
+  <rect x="6" y="10" width="7" height="12" rx="2" fill="url(#spill-mark-fill)" />
+  <rect x="15" y="10" width="7" height="12" rx="2" fill="url(#spill-mark-fill)" opacity="0.8" />
+  <rect x="24" y="10" width="7" height="12" rx="2" fill="url(#spill-mark-fill)" opacity="0.45" />
+</svg>

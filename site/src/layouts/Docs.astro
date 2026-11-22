@@ -1,0 +1,51 @@
+---
+// A docs page: the sidebar, the page (its title, its lead, the MDX), the previous and next pages in the sidebar's
+// order, and "On this page". MDX pages name it in their frontmatter (layout); .astro pages wrap their content in it.
+import Base from "./Base.astro";
+import Sidebar from "../components/Sidebar.astro";
+import Toc from "../components/Toc.astro";
+import { flat, site } from "../nav";
+
+type Heading = { depth: number; slug: string; text: string };
+const props = Astro.props as { frontmatter?: Record<string, any>; headings?: Heading[]; file?: string; title?: string; description?: string };
+const frontmatter = props.frontmatter ?? {};
+const title: string = frontmatter.title ?? props.title ?? "";
+const description: string | undefined = frontmatter.description ?? props.description;
+const headings = props.headings ?? [];
+
+const path = Astro.url.pathname;
+const index = flat.findIndex((item) => item.href === path);
+const prev = index > 0 ? flat[index - 1] : undefined;
+const next = index >= 0 && index < flat.length - 1 ? flat[index + 1] : undefined;
+const source = props.file?.replace(/\\/g, "/").split("/site/")[1];
+---
+<Base title={title} description={description}>
+  <div class="docs">
+    <Sidebar />
+    <main class="docs-main" id="content">
+      <article class="prose">
+        <h1>{title}</h1>
+        {description && <p class="lead">{description}</p>}
+        <slot />
+      </article>
+      {(prev || next) && (
+        <nav class="pager" aria-label="Previous and next">
+          {prev && (
+            <a class="prev" href={prev.href} rel="prev">
+              <span>Previous</span>
+              <strong>{prev.title}</strong>
+            </a>
+          )}
+          {next && (
+            <a class="next" href={next.href} rel="next">
+              <span>Next</span>
+              <strong>{next.title}</strong>
+            </a>
+          )}
+        </nav>
+      )}
+      {source && <a class="edit-link" href={`${site.github}/edit/main/site/${source}`}>Edit this page on GitHub</a>}
+    </main>
+    <Toc headings={headings} />
+  </div>
+</Base>

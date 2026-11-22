@@ -1,0 +1,102 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Auto height
+description: AutoHeight makes the carousel as tall as the selected snap's tallest slide, and follows the selection as it changes.
+---
+
+import AutoHeightExample from "../../../examples/auto-height/index.astro";
+import Callout from "../../../components/Callout.astro";
+
+<AutoHeightExample />
+
+AutoHeight has embla-carousel-auto-height's options. It writes one thing, a height on the container; the CSS below does the rest.
+
+## Add it
+
+```js
+import Spill from "@bozdev/spill";
+import AutoHeight from "@bozdev/spill/plugins/auto-height";
+
+const api = Spill(viewport, { align: "start" }, [AutoHeight()]);
+```
+
+It is also a named export of the package, `import { AutoHeight } from "@bozdev/spill"`, and `Spill.AutoHeight` with a `<script>` tag. By attributes, it is `auto-height`:
+
+```html
+<div data-spill-carousel='{"align":"start"}' data-spill-plugins="auto-height" aria-label="Reviews">
+  <div class="viewport" data-spill-viewport>
+    <div class="container">…</div>
+  </div>
+</div>
+```
+
+In `api.plugins()` it is `autoHeight`.
+
+## The CSS it needs
+
+```css
+.container {
+  display: flex;
+  align-items: flex-start; /* each slide keeps its own height */
+  transition: height 0.2s; /* the change, smooth */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container {
+    transition: none;
+  }
+}
+```
+
+`align-items: flex-start` is the one that matters. A flex row stretches its slides to its own height by default: AutoHeight would then measure the selected slide as tall as the row already is, and the carousel would stay as tall as its tallest slide.
+
+The transition is up to you. The first height, written as the carousel is built, doesn't animate: the container goes from `auto` to a length, and `auto` doesn't transition. Before that — and without JavaScript — the row is as tall as its tallest slide.
+
+## What it does
+
+It sets `height` on the container, inline, in pixels: the tallest of the selected snap's slides, by their `offsetHeight` (borders and padding count, margins don't). The viewport, its own height left to the content, follows the container.
+
+It measures:
+
+- when the carousel is built,
+- on `select` — under a finger, as soon as another snap is nearest,
+- on `resize` — a new width of the viewport or a slide,
+- on `slideFocus`.
+
+`destroy()` removes the height. A rebuild — `api.reInit()`, a breakpoint, slides added or removed — removes it too, then measures again.
+
+### Only the selected snap
+
+Only the selected snap's slides count. A slide beside it that is taller is cut off at the bottom — Spill writes `overflow-y: hidden` on a row's viewport. Show one snap at a time, or let the slides in view share a snap with `slidesToScroll: "auto"`.
+
+AutoHeight is for a row. A column (`axis: "y"`) has the height you give its viewport.
+
+### A slide that grows later
+
+It measures again on a new width, not on a new height. A slide that grows by itself — an image that loads, text that opens — isn't followed until the next `select`.
+
+- Give images their `width` and `height` attributes: the slide has its height before they load.
+- Or call `api.reInit()` after the change. That rebuilds the carousel and its plugins — an Autoplay on it starts over.
+
+<Callout title="Built while hidden">
+  In a closed tab or a dialog, every slide measures 0, and AutoHeight writes nothing. Once the carousel shows, Spill measures again and AutoHeight fits it.
+</Callout>
+
+## Options
+
+| Option | Default | |
+|---|---|---|
+| `active` | `true` | `false`: no height written |
+| `breakpoints` | `{}` | Options by media query, merged in while it matches |
+
+`AutoHeight.globalOptions` holds options every AutoHeight starts from, under its own — as `Spill.globalOptions` does for the carousel.
+
+AutoHeight on a phone only — on a wide screen, where your CSS shows three slides side by side, the row keeps its own height:
+
+```js
+Spill(viewport, { align: "start" }, [
+  AutoHeight({ breakpoints: { "(min-width: 1024px)": { active: false } } }),
+]);
+```
+
+A breakpoint that starts or stops matching rebuilds the carousel: the height is removed, then written again if AutoHeight is active. More on screens: [Breakpoints](/docs/guides/breakpoints/).

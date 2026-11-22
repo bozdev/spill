@@ -1,0 +1,353 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Methods
+description: The carousel's API — what each method takes, what it returns, and what it does.
+---
+
+import Callout from "../../../components/Callout.astro";
+
+`Spill()` returns the carousel's API: Embla's methods, on a native scroll. Keep it — it's how you move the carousel, read where it is, and listen to it.
+
+```js
+import Spill from "@bozdev/spill";
+
+const api = Spill(document.querySelector(".viewport"), { align: "start" });
+const next = document.querySelector(".next");
+
+next.addEventListener("click", () => api.scrollNext());
+api.on("select", () => {
+  next.disabled = !api.canScrollNext();
+});
+```
+
+| Method | Returns | |
+|---|---|---|
+| [`scrollNext(jump?)`](#scrollnext) | | To the next snap |
+| [`scrollPrev(jump?)`](#scrollprev) | | To the previous snap |
+| [`scrollTo(index, jump?)`](#scrollto) | | To a snap |
+| [`canScrollNext()`](#canscrollnext) | `boolean` | Whether there's a snap after the selected one |
+| [`canScrollPrev()`](#canscrollprev) | `boolean` | Whether there's a snap before it |
+| [`selectedScrollSnap()`](#selectedscrollsnap) | `number` | The selected snap |
+| [`previousScrollSnap()`](#previousscrollsnap) | `number` | The snap selected before it |
+| [`scrollSnapList()`](#scrollsnaplist) | `number[]` | Each snap's place, 0 to 1 |
+| [`scrollProgress()`](#scrollprogress) | `number` | Where the scroll is, 0 to 1 |
+| [`slidesInView()`](#slidesinview) | `number[]` | The slides in view |
+| [`slidesNotInView()`](#slidesnotinview) | `number[]` | The slides out of view |
+| [`slideNodes()`](#slidenodes) | `HTMLElement[]` | The slides |
+| [`containerNode()`](#containernode) | `HTMLElement` or `null` | The slides' parent |
+| [`rootNode()`](#rootnode) | `HTMLElement` | The viewport |
+| [`plugins()`](#plugins) | `object` | The plugins in force, by name |
+| [`internalEngine()`](#internalengine) | `object` | What plugins need of the carousel |
+| [`reInit(options?, plugins?)`](#reinit) | | Rebuilt |
+| [`destroy()`](#destroy) | | Taken down |
+| [`on(event, callback)`](#on) | the API | Listen to an event |
+| [`off(event, callback)`](#off) | the API | Stop listening |
+| [`emit(event)`](#emit) | the API | Fire an event |
+
+## Moving
+
+### scrollNext
+
+```ts
+scrollNext(jump?: boolean): void
+```
+
+To the next snap. It animates over [`duration`](/docs/api/options/#duration) — or, with `jump` set to `true`, gets there at once. At the last snap it stays where it is.
+
+```js
+api.scrollNext();
+api.scrollNext(true); // no animation
+```
+
+### scrollPrev
+
+```ts
+scrollPrev(jump?: boolean): void
+```
+
+To the previous snap, the same way. At the first snap it stays where it is.
+
+### scrollTo
+
+```ts
+scrollTo(index: number, jump?: boolean): void
+```
+
+To a snap, by its index from 0. The index is rounded and held within the snaps. If the snap changes, `select` fires at once, as the move starts; `settle` fires when it ends. With `prefers-reduced-motion: reduce`, a `duration` of `0` or `jump`, it gets there at once. While the carousel is inactive, it does nothing.
+
+```js
+api.scrollTo(0);       // back to the first snap
+api.scrollTo(3, true); // the fourth, at once
+```
+
+## Where it is
+
+### canScrollNext
+
+```ts
+canScrollNext(): boolean
+```
+
+Whether there's a snap after the selected one: `false` at the last snap, and while the carousel is inactive. A next button reads it on `select` and on `reInit` (see [Buttons and dots](/docs/guides/buttons-and-dots/)).
+
+### canScrollPrev
+
+```ts
+canScrollPrev(): boolean
+```
+
+Whether there's a snap before the selected one: `false` at the first snap, and while inactive.
+
+### selectedScrollSnap
+
+```ts
+selectedScrollSnap(): number
+```
+
+The selected snap's index. It changes as a move starts — a button, `scrollTo()`, a mouse's release — and, while a finger or a trackpad scrolls, whenever another snap is nearest.
+
+```js
+api.on("select", () => {
+  counter.textContent = `${api.selectedScrollSnap() + 1} / ${api.scrollSnapList().length}`;
+});
+```
+
+### previousScrollSnap
+
+```ts
+previousScrollSnap(): number
+```
+
+The snap that was selected before the current one — to tell which way a move went, or to undo a style on the slide it left.
+
+### scrollSnapList
+
+```ts
+scrollSnapList(): number[]
+```
+
+Each snap's place along the scroll, from `0` (the start) to `1` (the end). Its length is the number of snaps: one dot each.
+
+```js
+dots.replaceChildren(...api.scrollSnapList().map((_, index) => makeDot(index)));
+```
+
+### scrollProgress
+
+```ts
+scrollProgress(): number
+```
+
+Where the scroll is, from `0` to `1` — `0` when there's nothing to scroll. Read it on `scroll` for a progress bar.
+
+```js
+api.on("scroll", () => bar.style.setProperty("--progress", api.scrollProgress()));
+```
+
+### slidesInView
+
+```ts
+slidesInView(): number[]
+```
+
+The indexes of the slides in view, in order, by [`inViewThreshold`](/docs/api/options/#inviewthreshold). An IntersectionObserver fills it shortly after the carousel is built, so read it on the `slidesInView` event rather than right after `Spill()`.
+
+```js
+api.on("slidesInView", () => {
+  for (const index of api.slidesInView()) api.slideNodes()[index].querySelector("video")?.play();
+});
+```
+
+### slidesNotInView
+
+```ts
+slidesNotInView(): number[]
+```
+
+The indexes of the other slides, in order.
+
+## Its elements
+
+### slideNodes
+
+```ts
+slideNodes(): HTMLElement[]
+```
+
+The slides, in order — a new array each time. Empty while the carousel is inactive.
+
+### containerNode
+
+```ts
+containerNode(): HTMLElement | null
+```
+
+The slides' parent ([`container`](/docs/api/options/#container)), or `null` while the carousel is inactive.
+
+### rootNode
+
+```ts
+rootNode(): HTMLElement
+```
+
+The viewport: the element you passed to `Spill()`, the box that scrolls.
+
+## Plugins and internals
+
+### plugins
+
+```ts
+plugins(): Record<string, SpillPlugin>
+```
+
+The plugins in force, by name. Each is the plugin's own object, so its methods are there: the built-ins are `autoplay`, `classNames` and `autoHeight`. Empty while the carousel is inactive.
+
+```js
+api.plugins().autoplay.stop();
+api.plugins().autoplay.isPlaying(); // false
+```
+
+### internalEngine
+
+```ts
+internalEngine(): {
+  options: SpillOptions; // the options in force
+  slideRegistry: number[][]; // each snap's slides
+  scrollSnaps: number[]; // each snap's scroll position, in px
+  limit: { min: number; max: number }; // the scroll's range, in px
+}
+```
+
+Not Embla's physics engine: what a plugin needs of the carousel. `options` are the ones in force — the defaults, the global options, the carousel's own and its matching breakpoints, merged. `slideRegistry` lists each snap's slides (more than one with `slidesToScroll`, or where `trimSnaps` joined snaps). `scrollSnaps` and `limit` are in pixels from the start, in a right-to-left row too. Read it; for new options, use `reInit()`.
+
+```js
+const { slideRegistry } = api.internalEngine();
+slideRegistry[api.selectedScrollSnap()]; // [2, 3]: the selected snap's slides
+```
+
+## Building and taking down
+
+### reInit
+
+```ts
+reInit(options?: SpillOptions, plugins?: SpillPlugin[]): void
+```
+
+Takes the carousel down and builds it again: the plugins destroyed and started again, the slides found and measured again. `options` are merged into the ones it has — they add up from one call to the next — and `plugins`, when given, replace its plugin list. The selected snap is kept, unless `options.startIndex` says where to start. Then `reInit` fires. Your listeners stay. After `destroy()`, it does nothing.
+
+```js
+api.reInit({ align: "end" }); // new options
+api.reInit(); // the same options, measured again
+api.reInit({}, [Autoplay({ delay: 3000 })]); // new plugins
+```
+
+Spill rebuilds by itself when a breakpoint starts or stops matching and when slides are added or removed; when the viewport's or a slide's size along the axis changes, it measures again and fires `reInit`, then `resize`, as well. Call it yourself when content changed in a way none of them notice.
+
+### destroy
+
+```ts
+destroy(): void
+```
+
+Takes the carousel down for good: the plugins destroyed, every listener and observer removed, and everything Spill wrote — its inline styles, its `data-spill-*` attributes, a `style` attribute it added, the room `containScroll: false` made — taken away, so the markup is as it was. A `data-spill-viewport` you wrote yourself (as for [SpillAuto](/docs/attributes/)) stays. Then `destroy` fires, and every callback is dropped. Calling it again does nothing. Call it when the carousel leaves the page.
+
+```js
+api.destroy();
+```
+
+## Events
+
+### on
+
+```ts
+on(event: string, callback: (api: SpillApi, event: string) => void): SpillApi
+```
+
+Calls `callback` each time the event fires, with the API and the event's name. It returns the API, so calls chain. A callback added twice for the same event runs once.
+
+```js
+api.on("init", update).on("reInit", update).on("select", update);
+```
+
+### off
+
+```ts
+off(event: string, callback: (api: SpillApi, event: string) => void): SpillApi
+```
+
+Removes a callback — the same function you gave to `on()`. It returns the API.
+
+### emit
+
+```ts
+emit(event: string): SpillApi
+```
+
+Fires an event: its callbacks run at once, in the order they were added. Plugins fire their own events with it (`autoplay:play`); you can too. It returns the API. Every event, and when it fires: [Events](/docs/api/events/).
+
+## Exports
+
+### Spill
+
+```ts
+Spill(viewport: HTMLElement, options?: SpillOptions, plugins?: SpillPlugin[]): SpillApi
+```
+
+The default export, and a named one. It builds a carousel on the viewport — the box that scrolls — and returns its API. The plugins start inside it; `init` fires on the next task, after `Spill()` has returned, so a listener added right after it hears `init`. Options every carousel starts from: [`Spill.globalOptions`](/docs/api/options/#global-options).
+
+```js
+import Spill from "@bozdev/spill";
+// or: import { Spill } from "@bozdev/spill";
+```
+
+`@bozdev/spill/core` is the carousel alone, without the plugins and SpillAuto: `Spill` as its default export, `defaultOptions` and `optionsHandler`. More in [Modules and bundles](/docs/guides/modules/).
+
+```js
+import Spill from "@bozdev/spill/core";
+```
+
+### defaultOptions
+
+```ts
+defaultOptions: Readonly<Required<SpillOptions>>
+```
+
+Every option's default, frozen.
+
+```js
+import { defaultOptions } from "@bozdev/spill";
+
+defaultOptions.duration; // 25
+```
+
+The built-in plugins export theirs too: `autoplayDefaults`, `classNamesDefaults`, `autoHeightDefaults`.
+
+### optionsHandler
+
+```ts
+optionsHandler: { mergeOptions, optionsAtMedia, optionsMediaQueries }
+```
+
+The helpers a plugin's `init()` receives — merging options, applying the breakpoints that match, listing their media queries — and usable on their own. Each one: [The options handler](/docs/api/plugins/#the-options-handler).
+
+```js
+import { optionsHandler } from "@bozdev/spill";
+
+const now = optionsHandler.optionsAtMedia(myOptions); // with the breakpoints that match now
+```
+
+<Callout title="Without a bundler">
+  With the `<script>` build, everything hangs on the global `Spill`: `Spill.defaultOptions`, `Spill.optionsHandler`, `Spill.Autoplay`, `Spill.ClassNames`, `Spill.AutoHeight` and `Spill.SpillAuto`.
+</Callout>
+
+## Types
+
+The package ships TypeScript types for all of it: `SpillApi`, `SpillOptions`, `SpillPlugin`, `SpillEngine`, `SpillEventName`, `SpillEventType`, `SpillEventCallback`, `SpillAlign`, `SpillWords` (SpillAuto's labels), and the plugins' options.
+
+```ts
+import Spill, { type SpillApi, type SpillOptions } from "@bozdev/spill";
+
+const viewport = document.querySelector<HTMLElement>(".viewport")!;
+const options: SpillOptions = { align: "start" };
+const api: SpillApi = Spill(viewport, options);
+```

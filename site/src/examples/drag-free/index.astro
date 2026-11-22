@@ -1,0 +1,14 @@
+---
+import ExampleFrame from "../../components/ExampleFrame.astro";
+import meta from "./meta.json";
+import html from "./markup.html?raw";
+import css from "./style.css?raw";
+import js from "./script.js?raw";
+import "../base.css";
+import "./style.css";
+const { caption } = Astro.props;
+---
+<ExampleFrame slug="drag-free" title={meta.title} {html} {css} {js} {caption} />
+<script>
+  import "./script.js";
+</script>

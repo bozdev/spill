@@ -1,0 +1,99 @@
+---
+layout: ../../layouts/Docs.astro
+title: Browser support
+description: Spill runs in current Chrome, Edge, Firefox and Safari, on desktop and mobile, and a carousel stays a scrollable row where its script doesn't run.
+---
+
+Spill supports the current versions of Chrome, Edge, Firefox and Safari, on desktop and on mobile. Its own tests run in Chromium and WebKit on a desktop, and in WebKit as an emulated iPhone.
+
+## The web features it uses
+
+Every current browser has all of these. The last column is for the edges — older versions and less common browsers. Spill checks for the observers and for `scrollend` before it uses them, so a browser without one still gets a working carousel, minus that part.
+
+| Feature | What for | Without it |
+|---|---|---|
+| CSS scroll snap: `scroll-snap-type`, `scroll-snap-align`, `scroll-margin` | Stopping on a snap under a finger or a trackpad | Required |
+| `scroll-snap-stop` | One snap at most per swipe (`skipSnaps: false`) | A strong swipe can pass several snaps |
+| `overscroll-behavior` | A scroll that reaches an end stays in the carousel | The scroll carries on to the page |
+| `scrollend` | The `settle` event | 150 ms without a scroll ([below](#settling)) |
+| `scrollbar-width` | Hiding the scrollbar | A constructed stylesheet ([below](#the-scrollbar)) |
+| Constructed stylesheets | The scrollbar rule where `scrollbar-width` is missing, and the room `containScroll: false` makes | Where `scrollbar-width` is missing too, the scrollbar shows. The room is the container's padding, and slides sized in `%` shrink with it |
+| ResizeObserver | Measuring again when a size changes (`watchResize`), and when a carousel built while hidden shows | Not measured again: call `api.reInit()` |
+| MutationObserver | Noticing slides added or removed (`watchSlides`), and `SpillAuto.start()` watching the page | Call `api.reInit()`, and `SpillAuto.scan()` and `SpillAuto.forget()` |
+| IntersectionObserver | `slidesInView`, and ClassNames' `inView` class | `slidesInView()` stays empty |
+| Pointer events | A mouse's drag, and the `pointerDown` and `pointerUp` events | No mouse drag and no press events; scrolling still works |
+| `matchMedia` | `breakpoints`, and `prefers-reduced-motion` | Required for `breakpoints` |
+
+### Settling
+
+`settle` fires when the scroll comes to rest. Where the browser fires `scrollend`, that's the signal. A timer runs as well: 150 ms without a scroll event also counts as rest, which covers a browser without `scrollend`.
+
+### The scrollbar
+
+Spill writes `scrollbar-width: none` on the viewport. A browser without `scrollbar-width` (an older Safari) gets the one rule an inline style can't hold — `[data-spill-viewport]::-webkit-scrollbar { display: none }` — added once from JavaScript as a constructed stylesheet. There's no file to load and no `<style>` element. A browser with neither shows the scrollbar; to hide it there too, add the rule to your own CSS:
+
+```css
+[data-spill-viewport]::-webkit-scrollbar {
+  display: none;
+}
+```
+
+### Content Security Policy
+
+Spill loads nothing and injects no `<style>` or `<script>` element. It writes its inline styles through the CSSOM (`element.style`), and its few extra rules — the scrollbar's, and the room for `containScroll: false` — as constructed stylesheets, so a policy that blocks inline styles in markup doesn't stop it.
+
+### JavaScript
+
+`src/` and the built files in `dist/` are modern JavaScript (ES2022): optional chaining, `??` and the like. Nothing is compiled down for older browsers. If you have to support one, run Spill through your bundler's transpiler with your own targets.
+
+## Without JavaScript
+
+Spill builds on what's already in the page. Before its script runs — and where it never does — your markup and CSS are the carousel. Let the viewport scroll, and that's a row anyone can use:
+
+```css
+.carousel__viewport {
+  overflow-x: auto; /* scrolls before (and without) JavaScript */
+}
+.carousel__container {
+  display: flex;
+  gap: 1rem;
+}
+.carousel__slide {
+  flex: 0 0 80%;
+  min-width: 0;
+}
+```
+
+- A finger, a trackpad, shift + wheel and the keyboard's focus scroll it.
+- Find in page and screen readers reach every slide.
+- It starts at the first slide: `startIndex` is applied when Spill builds the carousel.
+- There's no snapping, and the scrollbar shows — unless your CSS says otherwise.
+- Buttons do nothing, and dots that a script makes aren't there yet.
+
+### Snapping before Spill runs
+
+To snap before Spill takes over, add CSS snapping that applies only while the viewport has no `data-spill-axis`, which Spill sets while a carousel is active. Once Spill runs it writes snap points of its own, and a rule on every slide would add more that it doesn't know about.
+
+```css
+.carousel__viewport:not([data-spill-axis]) {
+  scroll-snap-type: x mandatory;
+}
+.carousel__viewport:not([data-spill-axis]) .carousel__slide {
+  scroll-snap-align: start;
+}
+```
+
+These rules also apply where a breakpoint sets `active: false`, since Spill takes `data-spill-axis` away there. Don't key them on `data-spill-viewport`: markup [by attributes](/docs/attributes/) can carry it before Spill runs, and keeps it after.
+
+### Controls before they work
+
+By attributes, `SpillAuto` sets `aria-disabled` on every previous and next button when it builds the carousel. Until then the buttons do nothing, so you can keep them hidden. `visibility` holds their place, so nothing shifts when they appear:
+
+```css
+[data-spill-prev]:not([aria-disabled]),
+[data-spill-next]:not([aria-disabled]) {
+  visibility: hidden;
+}
+```
+
+The dots need nothing: `SpillAuto` makes them when it builds the carousel.

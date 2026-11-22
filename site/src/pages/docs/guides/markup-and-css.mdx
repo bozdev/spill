@@ -1,0 +1,286 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Markup and CSS
+description: Three nested elements and your own stylesheet — your CSS lays the slides out, and Spill writes only what scrolling and snapping need.
+---
+
+import VariableWidths from "../../../examples/variable-widths/index.astro";
+import Vertical from "../../../examples/vertical/index.astro";
+import RightToLeft from "../../../examples/right-to-left/index.astro";
+
+Spill has no stylesheet. The slides' sizes, the gaps, the colors and the controls are yours, as with Embla. Spill reads the layout your CSS makes, measures where each slide is drawn, and writes inline only what the browser needs to scroll and snap.
+
+## The markup
+
+You give Spill the **viewport**: the box that scrolls. Its first element child is the **container**, and the container's children are the **slides**.
+
+```html
+<div class="viewport">          <!-- the box that scrolls: Spill(viewport, …) -->
+  <div class="container">       <!-- its first child (or options.container) -->
+    <div class="slide">1</div>  <!-- the container's children (or options.slides) -->
+    <div class="slide">2</div>
+    <div class="slide">3</div>
+  </div>
+</div>
+```
+
+```js
+import Spill from "@bozdev/spill";
+
+const api = Spill(document.querySelector(".viewport"), { align: "start" });
+```
+
+The class names are yours, and so are the elements. A row of products or posts can be a real list: a `<ul>` as the container and `<li>` slides, with the list's `list-style`, `margin` and `padding` reset in your CSS.
+
+### Another container, other slides
+
+Two options change where Spill looks:
+
+- `container` — the slides' parent: a selector, looked up inside the viewport, or an element. `null`, the default, is the viewport's first element child.
+- `slides` — a selector, looked up inside the container, or an array or a NodeList of elements. `null`, the default, is every child of the container.
+
+```js
+Spill(viewport, {
+  container: ".track", // when it isn't the viewport's first child
+  slides: ".card",     // only these are slides
+});
+```
+
+Other elements in the container still take their room in the row; Spill just doesn't snap to them. With `watchSlides` on (the default), adding or removing children of the container rebuilds the carousel.
+
+## What Spill writes
+
+Everything Spill needs, it writes inline on your elements. `destroy()` takes all of it away again, and an element that had no `style` attribute before has none after. With `active: false`, Spill writes nothing at all.
+
+### Inline styles
+
+| On | Property | Value |
+|---|---|---|
+| Viewport | `overflow-x` | `auto` — `hidden` with `watchDrag: false` |
+| Viewport | `overflow-y` | `hidden` |
+| Viewport | `overscroll-behavior-x` | `contain` |
+| Viewport | `scrollbar-width` | `none` |
+| Viewport | `scroll-snap-type` | `x mandatory` — `none` with `dragFree`, and for as long as it animates or a mouse drags it |
+| Viewport | `user-select` | `none`, while a mouse drags it |
+| Each snap's first slide | `scroll-snap-align` | `start` |
+| Each snap's first slide | `scroll-margin-inline-start` | The snap's alignment in px: how far from the viewport's start the slide sits when its snap is selected |
+| Each snap's first slide | `scroll-snap-stop` | `always` — not with `skipSnaps` |
+| Container | `--spill-room-start`, `--spill-room-end`, `--spill-room-gap` | With `containScroll: false` only: the room before the first snap and after the last, in px, and the container's gap taken back ([below](#room-for-containscroll-false)) |
+
+With `axis: "y"` the axes swap: `overflow-y` scrolls and `overflow-x` is hidden, and the rest become `overscroll-behavior-y`, `y mandatory` and `scroll-margin-block-start`.
+
+Whatever `align` is, each snap is written as `start` plus a margin. That way the browser's snap point is exactly the place Spill measured, and a finger or a trackpad stops where a button would.
+
+### Attributes
+
+On the viewport, as hooks for your CSS:
+
+| Attribute | When |
+|---|---|
+| `data-spill-viewport` | While the carousel is active. One you wrote yourself (as [By attributes](/docs/attributes/) does) stays after `destroy()` |
+| `data-spill-axis` | Always while active: `"x"` or `"y"` |
+| `data-spill-draggable` | A mouse can drag it: `watchDrag` isn't `false` (a function counts) |
+| `data-spill-free` | `dragFree: true` |
+| `data-spill-dragging` | While a mouse drags it, once it has moved `dragThreshold` px |
+
+Where a browser doesn't support `scrollbar-width`, Spill adds one rule once, `[data-spill-viewport]::-webkit-scrollbar { display: none }`, as a constructed stylesheet: no file, no `<style>` element, nothing a Content Security Policy blocks.
+
+The plugins and the attributes layer write their own: [Class names](/docs/plugins/class-names/) toggles classes such as `is-snapped`, [Auto height](/docs/plugins/auto-height/) sets the container's `height`, and [By attributes](/docs/attributes/) adds roles and labels.
+
+### Room for `containScroll: false`
+
+With `containScroll: false`, every snap can take its place, the first and the last too, so the row may need room before the first slide or after the last. Spill makes it with the container's `::before` and `::after`. It sets `data-spill-room` on the container (`"x start end"`, say) and the custom properties above, and a constructed stylesheet, added once, turns the two into empty flex items of that size. Slides sized in `%` keep their size, and `destroy()` takes it all away. Leave the container's `::before` and `::after` to Spill while it does this.
+
+In a browser without constructed stylesheets, Spill pads the container instead (`padding-inline-start` and `padding-inline-end`, or `padding-block-start` and `padding-block-end` with `axis: "y"`). That works less well: slides sized in `%` shrink with the padding.
+
+## What your CSS does
+
+The layout. A row is a flex container whose slides don't grow or shrink:
+
+```css
+.viewport {
+  overflow-x: auto;     /* before JavaScript runs (and without it), the row still scrolls */
+  scrollbar-width: none;
+}
+
+.container {
+  display: flex;
+  gap: 1rem;
+}
+
+.slide {
+  flex: 0 0 80%;        /* the slide's size */
+  min-width: 0;         /* long content can't stretch it */
+}
+
+.viewport[data-spill-draggable] { cursor: grab; }
+.viewport[data-spill-dragging] { cursor: grabbing; }
+```
+
+Inline styles win over your stylesheet's rules for the same properties, so while the carousel is active, its overflow is Spill's. With `active: false` Spill takes them away, and your CSS decides again.
+
+Leave two things to Spill:
+
+- **Snapping.** No `scroll-snap-type`, `scroll-snap-align` or `scroll-padding` of your own. Spill writes the snap points from what it measures; a `scroll-padding` or snap points on other slides would make the browser stop somewhere else.
+- **Transforms on the slides.** Spill measures each slide where it's drawn, so a `transform`, `scale` or `translate` on the container or a slide moves what it measures. Put an effect on the slide's content instead.
+
+## Recipes
+
+### Slides per view
+
+A slide's `flex-basis` sets how many fit. Take the gaps out first: three slides with two `1rem` gaps between them are each a third of what's left.
+
+```css
+.slide { flex: 0 0 100%; min-width: 0; }               /* one on a phone */
+
+@media (min-width: 640px) {
+  .slide { flex-basis: calc((100% - 1rem) / 2); }      /* two */
+}
+
+@media (min-width: 1024px) {
+  .slide { flex-basis: calc((100% - 2 * 1rem) / 3); }  /* three */
+}
+```
+
+Spill reads the sizes and never sets them. To move a whole view at a time, set `slidesToScroll: "auto"`: as many slides as fit in view make one snap, and it follows your CSS as the sizes change. Or set `slidesToScroll` for each media query with [breakpoints](/docs/guides/breakpoints/).
+
+### Slides of different widths
+
+Every slide can have its own size. Spill measures them one by one, and `align` places each snap: here `"center"`, with the first and the last slide held to the edges by `containScroll: "trimSnaps"`, the default.
+
+<VariableWidths />
+
+A slide can also take its width from its content, with `flex: 0 0 auto`. Give any image in it a `width` and a `height`, so the slide has its size before the image loads.
+
+### Gaps
+
+`gap` on the container is all it takes. Spill measures where each slide is drawn, so the space between them is counted, and the slides need no padding of their own.
+
+```css
+.container { display: flex; gap: 1.5rem; }
+```
+
+### Peeking at the next slide
+
+Make the slides narrower than the viewport, and the next one shows at the edge:
+
+```css
+.slide { flex: 0 0 85%; min-width: 0; }
+```
+
+With `align: "start"`, the next slide peeks in at the end. With `"center"`, the default, both neighbors do. At the ends, `containScroll: "trimSnaps"` holds the first slide to the start and the last to the end. Set `containScroll: false` to center every slide, the first and the last too: Spill makes room before the first and after the last ([Room for containScroll: false](#room-for-containscroll-false)).
+
+### A grid inside a slide
+
+A slide is yours, and any layout works inside it: a grid of cards, a figure with its caption, a form. Spill only scrolls the slides.
+
+```html
+<div class="slide slide--grid">
+  <a href="/one/">…</a>
+  <a href="/two/">…</a>
+  <a href="/three/">…</a>
+  <a href="/four/">…</a>
+</div>
+```
+
+```css
+.slide--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+```
+
+Tab moves through the links in order, and when the focus goes into a slide of another snap, Spill brings that snap in (`watchFocus`). A mouse press in a field — an input, a select, a textarea — never starts a drag.
+
+### A column
+
+`axis: "y"` scrolls the viewport up and down. The column itself is your CSS: a height on the viewport, `flex-direction: column` on the container, and the slides' sizes as shares of that height.
+
+```css
+.viewport {
+  height: 22rem;
+  overflow-y: auto;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;          /* the slides' percentages need a height to share */
+}
+
+.slide { flex: 0 0 75%; min-height: 0; }
+```
+
+```js
+Spill(viewport, { axis: "y", align: "start" });
+```
+
+<Vertical />
+
+On a column, Spill writes `overscroll-behavior-y: contain`: a wheel or a finger over the carousel scrolls it, and at its ends the scroll stays there instead of moving on to the page. Keep a vertical carousel shorter than the screen, so there's page around it to scroll by.
+
+### Right to left
+
+Set `direction: "rtl"`, and put `dir="rtl"` on the viewport or an ancestor. The two go together: `dir` lays the row out from the right, and `direction` tells Spill to read the scroll that way. With one and not the other, Spill measures from the wrong side.
+
+```html
+<div class="carousel" dir="rtl">
+  <div class="viewport">…</div>
+</div>
+```
+
+```js
+Spill(viewport, { align: "start", direction: "rtl" });
+```
+
+`align: "start"` is then the right edge. In a flex row, `dir="rtl"` also moves a previous button written first over to the right; mirror the arrow icons yourself.
+
+<RightToLeft />
+
+### Effects as it scrolls
+
+The viewport really scrolls, so CSS scroll-driven animations can follow it without a script. `animation-timeline: view(inline)` runs an animation as an element crosses its scrolling box: 0% as it comes in at one edge, 50% in the middle, 100% as it leaves at the other.
+
+```css
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .slide > .card {
+      animation: card-focus linear both;
+      animation-timeline: view(inline);
+    }
+
+    @keyframes card-focus {
+      0%, 100% { opacity: 0.4; scale: 0.85; }
+      50% { opacity: 1; scale: 1; }
+    }
+  }
+}
+```
+
+Animate what's inside a slide, not the slide itself: Spill measures the slides where they're drawn. In a column, use `view(block)`. Where the browser has no support, or the user asks for reduced motion, the cards simply stay as they are. The [Scale](/examples/#scale) example works this way; [Opacity](/examples/#opacity) does the same in JavaScript, on every `scroll` event.
+
+### Lazy images
+
+`loading="lazy"` works as it does anywhere else: the browser decides when to fetch each image, with no script of yours or Spill's.
+
+```html
+<div class="slide">
+  <img src="photo-1.jpg" alt="…" width="1200" height="800">
+</div>
+<div class="slide">
+  <img src="photo-2.jpg" alt="…" width="1200" height="800" loading="lazy">
+</div>
+```
+
+```css
+.slide img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+```
+
+- Leave `loading="lazy"` off the slides that show first. They're needed at once.
+- Give each image a `width` and a `height` (or an `aspect-ratio` in CSS), so its slide has its size before the image arrives. Spill measures again when a size along the axis changes, but the row would jump.

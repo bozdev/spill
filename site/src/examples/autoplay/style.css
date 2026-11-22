@@ -1,0 +1,34 @@
+/* The play / pause button shows one icon at a time: pause while autoplay plays (aria-pressed="true"), play while it
+   doesn't */
+.carousel--autoplay .carousel__button--play {
+  flex: none;
+}
+
+.carousel--autoplay .carousel__button--play[aria-pressed="true"] .icon-play,
+.carousel--autoplay .carousel__button--play:not([aria-pressed="true"]) .icon-pause {
+  display: none;
+}
+
+/* The time to the next slide: a thin line the script fills while the timer counts */
+.carousel--autoplay .carousel__timer {
+  flex: 1;
+  min-width: 2rem;
+  height: 2px;
+  border-radius: 1px;
+  overflow: hidden;
+  background: var(--line-strong, #34343c);
+}
+
+.carousel--autoplay .carousel__timer-fill {
+  height: 100%;
+  background: var(--accent, #9368f0);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+/* Reduced motion: no moving line (Spill's own moves jump then, autoplay's included) */
+@media (prefers-reduced-motion: reduce) {
+  .carousel--autoplay .carousel__timer {
+    visibility: hidden;
+  }
+}

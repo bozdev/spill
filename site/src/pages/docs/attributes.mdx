@@ -1,0 +1,253 @@
+---
+layout: ../../layouts/Docs.astro
+title: By attributes
+description: Write the markup and the carousel builds itself — its options, plugins and controls in attributes, the controls anywhere on the page.
+---
+
+import ByAttributes from "../../examples/attributes/index.astro";
+import Callout from "../../components/Callout.astro";
+
+`SpillAuto` builds carousels from attributes: no script per carousel, and a carousel's controls can be anywhere on the page. The one below has no script of its own — its numbered dots, its progress bar, its play button for Autoplay and the next button outside it are all in the markup.
+
+<ByAttributes />
+
+## Start it
+
+One import, and every `[data-spill-carousel]` on the page builds itself:
+
+```js
+import "@bozdev/spill/auto";
+```
+
+Or, without a bundler, one tag:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@bozdev/spill@0.1.0/dist/spill.auto.js"></script>
+```
+
+Both register the three plugins — Autoplay, ClassNames and AutoHeight — and call `SpillAuto.start()`. To load only what you use, start it yourself:
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+
+SpillAuto.plugins = { autoplay: Autoplay };
+SpillAuto.start();
+```
+
+## The markup
+
+The carousel element holds the options, the plugins and their options. Inside it, a viewport and the controls; a control elsewhere names the carousel's `id`.
+
+```html
+<section id="gallery" aria-label="Gallery"
+  data-spill-carousel='{"align":"start"}'
+  data-spill-plugins="autoplay"
+  data-spill-autoplay='{"delay":5000}'>
+  <div class="viewport" data-spill-viewport>
+    <div class="container">
+      <div class="slide">…</div>
+      <div class="slide">…</div>
+      <div class="slide">…</div>
+    </div>
+  </div>
+  <button type="button" data-spill-prev>Previous</button>
+  <button type="button" data-spill-next>Next</button>
+  <button type="button" data-spill-play>Autoplay</button>
+  <div data-spill-dots></div>
+  <div data-spill-progress></div>
+</section>
+
+<!-- Anywhere else on the page -->
+<button type="button" data-spill-next data-spill-for="gallery">Next slide</button>
+```
+
+The JSON goes in single quotes, so its own double quotes fit. JSON that doesn't parse gets a warning in the console, and the defaults are used instead. The viewport, its container and its slides are as in [the markup](/docs/quick-start/#the-markup) for `Spill()`; the look is your CSS.
+
+## Every attribute
+
+| Attribute | On | What it does |
+|---|---|---|
+| `data-spill-carousel` | The carousel | Builds it. Its value: the [options](/docs/api/options/) as JSON (`'{"align":"start"}'`); empty, the defaults |
+| `data-spill-viewport` | An element inside | The box that scrolls. None marked: the carousel element is the viewport itself — mark one when the controls are inside |
+| `data-spill-plugins` | The carousel | Plugins by name, separated by spaces or commas: `"autoplay class-names auto-height"` |
+| `data-spill-<name>` | The carousel | A plugin's options as JSON, by its name in `data-spill-plugins`: `data-spill-autoplay='{"delay":3000}'` |
+| `data-spill-prev`, `data-spill-next` | A button | The previous or next snap. At an edge, `aria-disabled="true"` and `data-spill-disabled`, and its clicks are ignored — a focused button keeps its focus |
+| `data-spill-dots` | A box | Filled with a button for each snap, `aria-current="true"` on the selected one. `data-spill-dots="number"`: each holds its number |
+| `data-spill-progress` | Any element | Its `--spill-progress` goes from 0 to 1 as the carousel scrolls |
+| `data-spill-to="3"` | A button | The 3rd snap (counted from 1) |
+| `data-spill-play` | A button | Autoplay on or off; `aria-pressed` says which |
+| `data-spill-for="<id>"` | A control | Its carousel, by the carousel's `id` — for a control outside it |
+| `data-spill-aria="false"` | The carousel | No roles or labels on the carousel and its slides |
+
+A control belongs to the carousel it's in — the nearest one, when carousels are nested — or to the one its `data-spill-for` names. Controls are found when the carousel is built: one added to the page later isn't wired.
+
+The progress is a CSS variable, so the bar is yours to draw:
+
+```css
+.progress { height: 0.25rem; overflow: hidden; background: #ddd; }
+.progress::before {
+  content: "";
+  display: block;
+  height: 100%;
+  background: rebeccapurple;
+  transform: scaleX(var(--spill-progress, 0));
+  transform-origin: left;
+}
+```
+
+## Plugins by name
+
+`data-spill-plugins` names plugins from `SpillAuto.plugins`. `@bozdev/spill/auto` and `spill.auto.js` register these three:
+
+| Name | Plugin | Its options attribute |
+|---|---|---|
+| `autoplay` | [Autoplay](/docs/plugins/autoplay/) | `data-spill-autoplay='{"delay":4000,"stopOnMouseEnter":true}'` |
+| `class-names` | [Class names](/docs/plugins/class-names/) | `data-spill-class-names='{"snapped":"is-active"}'` |
+| `auto-height` | [Auto height](/docs/plugins/auto-height/) | `data-spill-auto-height='{"breakpoints":{"(min-width: 768px)":{"active":false}}}'` |
+
+A name that isn't registered gets a warning in the console, and the carousel is built without it. Your own plugin is named the same way — register it before `start()`:
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+import Logger from "./logger.js";
+
+SpillAuto.plugins = { autoplay: Autoplay, logger: Logger };
+SpillAuto.start();
+```
+
+`data-spill-plugins="autoplay logger"` then calls `Logger()` with the JSON in `data-spill-logger` (or `{}`).
+
+The name in the attribute is the registered one. `api.plugins()` lists them by each plugin's own name: `class-names` is `api.plugins().classNames`, `auto-height` is `api.plugins().autoHeight`.
+
+Options that are functions — `align` as a function, a per-snap `delay`, the `watch…` callbacks — can't be written in JSON. Build that carousel with `Spill()` instead.
+
+## Words
+
+SpillAuto writes labels for screen readers. `SpillAuto.words` holds them, to put in a site's language:
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+
+SpillAuto.words = {
+  carousel: "Karussell",
+  carouselRole: "Karussell",
+  slideRole: "Folie",
+  slide: "{0} von {1}",
+  prev: "Vorherige Folie",
+  next: "Nächste Folie",
+  goTo: "Gehe zu Folie {0}",
+  autoplay: "Automatische Wiedergabe",
+};
+SpillAuto.plugins = { autoplay: Autoplay };
+SpillAuto.start();
+```
+
+| Word | Default | Where |
+|---|---|---|
+| `carousel` | `"Carousel"` | The carousel's `aria-label`, when it has none |
+| `carouselRole` | `"carousel"` | The carousel's `aria-roledescription` |
+| `slideRole` | `"slide"` | Each slide's `aria-roledescription` |
+| `slide` | `"{0} of {1}"` | Each slide's `aria-label`: its number, and how many there are |
+| `prev` | `"Previous slide"` | A previous button's `aria-label` |
+| `next` | `"Next slide"` | A next button's `aria-label` |
+| `goTo` | `"Go to slide {0}"` | Each dot's `aria-label`: its snap's number |
+| `autoplay` | `"Autoplay"` | A play button's `aria-label` |
+
+The words are read when a carousel is built: set them before `start()`. To change only a few, set only those — `SpillAuto.words = { next: "Weiter" }` — and the words you leave out stay English.
+
+<Callout kind="warning" title="With @bozdev/spill/auto">
+  The `auto` import builds the page's carousels as soon as it runs, and imports run before the code next to them. Set the words in a module of their own, imported before it.
+</Callout>
+
+```js
+// words.js
+import { SpillAuto } from "@bozdev/spill/attributes";
+
+SpillAuto.words = { prev: "Vorherige Folie", next: "Nächste Folie" };
+```
+
+```js
+// main.js — the words first, then the carousels
+import "./words.js";
+import "@bozdev/spill/auto";
+```
+
+With the `<script>` tag, load `spill.global.js` instead of `spill.auto.js` and start it yourself:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@bozdev/spill@0.1.0/dist/spill.global.js"></script>
+<script>
+  Spill.SpillAuto.words = { next: "Weiter" };
+  Spill.SpillAuto.plugins = { autoplay: Spill.Autoplay };
+  Spill.SpillAuto.start();
+</script>
+```
+
+## What it writes for screen readers
+
+| Where | What |
+|---|---|
+| The carousel | `role="region"`, `aria-roledescription="carousel"`, and `aria-label="Carousel"` when it has neither an `aria-label` nor an `aria-labelledby` |
+| Each slide | `role="group"`, `aria-roledescription="slide"`, `aria-label="1 of 5"` |
+| Previous, next, play | An `aria-label` each, when it has none |
+| Previous, next | `aria-disabled="true"` at an edge, `"false"` otherwise |
+| Play | `aria-pressed="true"` while Autoplay runs, `"false"` otherwise |
+| Each dot | `aria-label="Go to slide 2"`; `aria-current="true"` on the selected one |
+
+The words are from `SpillAuto.words`. Your own attributes stay — give the carousel an `aria-label` that says what it shows. A `data-spill-to` button gets no label: give it text. `data-spill-aria="false"` leaves the carousel and its slides as they are; the controls still get theirs.
+
+When a carousel is taken down, what SpillAuto wrote goes with it: the labels, the dots, the controls' states. Your own `data-spill-viewport` stays, so a later `scan()` builds the same carousel again.
+
+## The SpillAuto API
+
+| | |
+|---|---|
+| `SpillAuto.plugins` | `{ name: factory }` — the plugins `data-spill-plugins` can name |
+| `SpillAuto.words` | The labels it writes ([Words](#words)) |
+| `SpillAuto.start({ observe = true })` | Builds every carousel on the page — once the document is parsed. `observe`: then watches the page, builds the carousels added later and takes down the ones removed |
+| `SpillAuto.stop()` | Takes every carousel down and stops watching |
+| `SpillAuto.scan(roots?)` | Builds the carousels in these elements (the elements too; the whole document by default). Each carousel is built once |
+| `SpillAuto.forget(roots)` | Takes down the carousels in these elements (the elements too) |
+| `SpillAuto.get(element)` | A carousel's API, by its element or anything in it; `null` when there's none |
+| `SpillAuto.all()` | Every carousel built: a `Map` of element to API |
+
+`scan` and `forget` take an array: `SpillAuto.scan([document.querySelector("main")])`. With the API, the carousel is yours to drive:
+
+```js
+const api = SpillAuto.get(document.querySelector("#gallery"));
+api?.scrollTo(2);
+```
+
+### The spill:ready event
+
+Each carousel built fires `spill:ready` on its element. It bubbles, and `event.detail.api` is its API:
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+
+document.addEventListener("spill:ready", (event) => {
+  const { api } = event.detail;
+  api.on("select", () => console.log(event.target.id, api.selectedScrollSnap()));
+});
+
+SpillAuto.start();
+```
+
+Listen before the carousels are built — before `start()`, or, with `@bozdev/spill/auto`, in a module imported before it. The ones built already are in `SpillAuto.all()`. The carousel's own `init` comes after `spill:ready`, so a listener added there still hears it.
+
+## Routers
+
+`start()` watches the page, so carousels a script adds later build themselves, and the ones it removes are taken down. A site that swaps its content with a client-side router can say when instead: start without watching, take the old content's carousels down before it goes, and build the new content's once it's in.
+
+```js
+SpillAuto.start({ observe: false });
+
+// In your router's hooks — their names vary
+router.beforeSwap(() => SpillAuto.forget([document.querySelector("main")]));
+router.afterSwap(() => SpillAuto.scan([document.querySelector("main")]));
+```
+
+Take them down before a router keeps a copy of the page for the back button, too: the inline styles, the labels and the dots go, and a copy that comes back is built fresh. [Frameworks](/docs/frameworks/#spillauto-with-client-side-routers) has Astro's view transitions as an example.

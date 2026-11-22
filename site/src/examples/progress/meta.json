@@ -1,0 +1,5 @@
+{
+  "title": "Progress",
+  "description": "A bar under the carousel that fills as it scrolls, from scrollProgress() on every scroll event: by hand, with a mouse or with the buttons.",
+  "order": 10
+}

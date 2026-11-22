@@ -1,0 +1,29 @@
+/* Each slide its own width. base.css sizes a slide with flex: 0 0 var(--slide-size), so setting the variable on a
+   slide is enough. Spill reads these sizes; it never sets them. */
+.carousel--variable-widths .carousel__slide:nth-child(1) {
+  --slide-size: 45%;
+}
+
+.carousel--variable-widths .carousel__slide:nth-child(2) {
+  --slide-size: 70%;
+}
+
+.carousel--variable-widths .carousel__slide:nth-child(3) {
+  --slide-size: 30%;
+}
+
+.carousel--variable-widths .carousel__slide:nth-child(4) {
+  --slide-size: 55%;
+}
+
+.carousel--variable-widths .carousel__slide:nth-child(5) {
+  --slide-size: 40%;
+}
+
+.carousel--variable-widths .carousel__slide:nth-child(6) {
+  --slide-size: 65%;
+}
+
+.carousel--variable-widths .carousel__slide:nth-child(7) {
+  --slide-size: 35%;
+}

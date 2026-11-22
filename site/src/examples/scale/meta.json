@@ -1,0 +1,5 @@
+{
+  "title": "Scale",
+  "description": "The slide in the middle at full size, the others smaller as they move away — a CSS scroll-driven animation, with no script for it.",
+  "order": 17
+}

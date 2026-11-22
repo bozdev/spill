@@ -1,0 +1,182 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Events
+description: What a carousel fires, when, and in what order — and how to listen.
+---
+
+import Events from "../../../examples/events/index.astro";
+import Callout from "../../../components/Callout.astro";
+
+A carousel tells you what happens through events, with Embla's names. Move this one with the buttons, a mouse, a finger or a trackpad, and watch what it fires:
+
+<Events />
+
+## Listening
+
+`api.on(event, callback)` calls the callback each time the event fires, with two arguments: the carousel's API and the event's name. `api.off(event, callback)` removes it again — the same function. Both return the API, so calls chain.
+
+```js
+import Spill from "@bozdev/spill";
+
+const api = Spill(document.querySelector(".viewport"), { align: "start" });
+
+const label = document.querySelector(".label");
+const update = (api, event) => {
+  label.textContent = `${event}: snap ${api.selectedScrollSnap() + 1}`;
+};
+api.on("init", update).on("reInit", update).on("select", update);
+
+// later
+api.off("select", update);
+```
+
+- Callbacks run at once, in the order they were added; what they return is ignored.
+- A callback added twice for the same event runs once.
+- Listeners stay through `reInit()`. `destroy()` fires `destroy`, then drops them all.
+- Add them right after `Spill()` returns: `init` fires on the next task, so it's heard.
+
+## The core's events
+
+| Event | Fires when |
+|---|---|
+| [`init`](#init) | The carousel was built — once |
+| [`reInit`](#reinit) | It was rebuilt, or measured again after a new size |
+| [`destroy`](#destroy) | It was taken down |
+| [`select`](#select) | The selected snap changed |
+| [`scroll`](#scroll) | It scrolled — at most once a frame |
+| [`settle`](#settle) | It came to rest — once a move |
+| [`resize`](#resize) | It was measured again after a size changed |
+| [`slidesInView`](#slidesinview) | The slides in view changed |
+| [`slidesChanged`](#slideschanged) | Slides were added or removed |
+| [`slideFocusStart`](#slidefocusstart-and-slidefocus) | Focus landed inside a slide |
+| [`slideFocus`](#slidefocusstart-and-slidefocus) | That slide's snap was brought into place |
+| [`pointerDown`](#pointerdown-and-pointerup) | A press on the viewport |
+| [`pointerUp`](#pointerdown-and-pointerup) | That press ended |
+
+### init
+
+Once, when the carousel is built — on the next task after `Spill()` returns, with the plugins already started. It fires even when the carousel is inactive (`active: false`). A rebuild fires `reInit` instead.
+
+### reInit
+
+After the carousel is rebuilt — by `api.reInit()`, a breakpoint that starts or stops matching, or slides added or removed — and after it's measured again because the viewport's or a slide's size along the axis changed. The snaps may have changed: build the dots again and update the buttons here. A rebuild doesn't fire `select`, even when it leaves fewer snaps and the selected one changes with them, so listen to both.
+
+### destroy
+
+When `api.destroy()` has taken everything down. Every callback is dropped right after it.
+
+### select
+
+When the selected snap changes:
+
+- a programmatic move — `scrollTo()`, `scrollNext()`, `scrollPrev()`, a focus: at once, as the move starts;
+- a finger, a trackpad or the wheel: during the scroll, as soon as another snap is the nearest;
+- a mouse's drag: at the release, with the snap the throw is headed for;
+- a mouse's throw with `dragFree`: when the row stops, with the nearest snap.
+
+Read `selectedScrollSnap()` and `previousScrollSnap()` in it.
+
+### scroll
+
+Whenever the viewport scrolls, whatever moves it — at most once a frame. Read `scrollProgress()` in it for a progress bar.
+
+### settle
+
+When the carousel comes to rest after moving, once a move: at the end of a programmatic move, on the browser's `scrollend` where it has one, or after 150 ms without a scroll. Not while a mouse still holds it.
+
+### resize
+
+After Spill measured the carousel again because the viewport or a slide changed size along the axis, by half a pixel or more — right after `reInit`. A slide that only grows taller in a row is no resize.
+
+### slidesInView
+
+When the set of slides in view changes, by [`inViewThreshold`](/docs/api/options/#inviewthreshold): during a scroll, and once shortly after the carousel is built or rebuilt, when its IntersectionObserver first reports. Read `slidesInView()` and `slidesNotInView()` in it.
+
+### slidesChanged
+
+After slides were added to the container or removed from it ([`watchSlides`](/docs/api/options/#watchslides)) — right after the rebuild's `reInit`.
+
+### slideFocusStart and slideFocus
+
+When focus lands inside a slide ([`watchFocus`](/docs/api/options/#watchfocus)): `slideFocusStart` first; then Spill starts the move to that slide's snap (`select`, if the snap changes), and `slideFocus` follows. The scroll goes on after them.
+
+### pointerDown and pointerUp
+
+`pointerDown` fires on every press on the viewport — any mouse button, a finger or a pen — before anything else; a move in progress stops there. `pointerUp` ends every press that fired `pointerDown`: when the button, the finger or the pen comes up, wherever it is by then, or when the browser cancels the press (`pointercancel`) — as it does when a finger's press turns into a scroll. A press in a form field and a press with [`watchDrag: false`](/docs/api/options/#watchdrag) fire both too. After a mouse's drag, `pointerUp` comes at the release, before the throw's `select`.
+
+## In what order
+
+| What happens | The events |
+|---|---|
+| `Spill()` | `init` on the next task; `slidesInView` when the observer first reports |
+| A button: `scrollNext()` | `select` → `scroll` … → `settle` |
+| A finger | `pointerDown` → `pointerUp` as the scroll takes over → `scroll` … (`select` whenever another snap is nearest) → `settle` |
+| A trackpad or the wheel | `scroll` … (`select` whenever another snap is nearest) → `settle` |
+| A mouse's drag | `pointerDown` → `scroll` … → `pointerUp` → `select` → `scroll` … → `settle` |
+| A click, a tap | `pointerDown` → `pointerUp` |
+| Tab into a slide | `slideFocusStart` → `select` → `slideFocus` → `scroll` … → `settle` |
+| A new size | `reInit` → `resize` |
+| Slides added or removed | `reInit` → `slidesChanged` |
+| `reInit()`, a breakpoint | `reInit` |
+| `destroy()` | `destroy` |
+
+`select` comes only when the snap changes, and `slidesInView` whenever the slides in view do. The plugins start inside `Spill()` and again on each rebuild, before `init` or `reInit` — so the events they fire as they start come first.
+
+## Plugin events
+
+A plugin fires its own events on the carousel, named after it, and you listen to them the same way. [Autoplay](/docs/plugins/autoplay/) fires these:
+
+| Event | Fires when |
+|---|---|
+| `autoplay:play` | It starts playing: `play()`, `playOnInit` as the carousel is built or rebuilt, the mouse leaving with `stopOnMouseEnter` |
+| `autoplay:stop` | It stops: `stop()`, a press with `stopOnInteraction`, a focus inside with `stopOnFocusIn`, the mouse entering with `stopOnMouseEnter`, the last snap with `stopOnLastSnap` |
+| `autoplay:select` | It has just moved the carousel on — after the core's `select` |
+| `autoplay:timerset` | A countdown to the next move started |
+| `autoplay:timerstopped` | A running countdown was cleared: stopped, paused by a press, the page hidden, started over, taken down |
+
+ClassNames and AutoHeight fire none.
+
+<Callout title="The first play happens inside Spill()">
+  With `playOnInit` (the default), Autoplay starts — and fires `autoplay:play` — while `Spill()` runs, before you can listen. Read `isPlaying()` on `init` for the state it starts in, and follow it from there.
+</Callout>
+
+```js
+import Spill from "@bozdev/spill";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+
+const api = Spill(viewport, { align: "start" }, [Autoplay({ delay: 5000 })]);
+
+const update = () => playButton.setAttribute("aria-pressed", String(api.plugins().autoplay.isPlaying()));
+api.on("init", update).on("autoplay:play", update).on("autoplay:stop", update);
+```
+
+## Your own events
+
+`api.emit(event)` fires any event by name, and its callbacks run at once. Give your own a prefix, as Autoplay does — it's how [a plugin of your own](/docs/api/plugins/) tells the page what it did.
+
+```js
+api.on("gallery:open", () => dialog.showModal());
+api.emit("gallery:open");
+```
+
+## spill:ready
+
+A carousel built [by attributes](/docs/attributes/) has no `Spill()` call of yours to keep its API. SpillAuto hands it over with a DOM event instead: `spill:ready`, fired on the carousel's element as it's built. It bubbles, and `event.detail.api` is the API. It comes before the carousel's `init`, so a listener added there hears `init` too.
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+
+document.addEventListener("spill:ready", (event) => {
+  const { api } = event.detail;
+  const carousel = event.target; // the [data-spill-carousel] element
+  api.on("select", () => {
+    carousel.dataset.snap = api.selectedScrollSnap();
+  });
+});
+
+SpillAuto.plugins = { autoplay: Autoplay };
+SpillAuto.start();
+```
+
+Add the listener before SpillAuto starts. `@bozdev/spill/auto` starts it as soon as it's imported — an import runs before the rest of your module — so the carousels already on the page can be built before your listener is there. For a carousel that's already built, `SpillAuto.get(element)` returns its API (`null` when the element is in no carousel SpillAuto built).

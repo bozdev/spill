@@ -1,0 +1,5 @@
+{
+  "title": "Thumbnails",
+  "description": "Two carousels: a thumbnail's click scrolls the main one there, and the main one's select marks its thumbnail and brings it into view.",
+  "order": 16
+}

@@ -1,0 +1,22 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      # dist/ and types/ are committed: rebuilt here, they must come out the same
+      - run: npm run build
+      - run: git diff --exit-code -- dist types
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm test

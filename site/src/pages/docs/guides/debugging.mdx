@@ -1,0 +1,111 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Debugging
+description: How to see what a carousel is doing — its events, its measurements and the styles it wrote — and the usual reasons it does something you didn't expect.
+---
+
+Spill keeps little state, and most of it is in plain sight: in the attributes and inline styles it writes, in `internalEngine()`, and in its events. Start by checking that the carousel is built at all.
+
+## Is it built?
+
+- **The viewport has `data-spill-axis`** while a carousel is active on it. No attribute: Spill hasn't run, or the carousel has `active: false` (from a breakpoint, perhaps). Don't go by `data-spill-viewport`: one you wrote yourself, as in markup [by attributes](/docs/attributes/), is there before and after.
+- **By attributes,** `SpillAuto.get(element)` returns the carousel's API, or `null` if it isn't built. Each carousel fires `spill:ready` on its element when it's built.
+- **`SpillAuto` warns in the console** when it can't do something: an options attribute that isn't valid JSON, a plugin name it doesn't know, a carousel it couldn't build.
+
+With the `<script>` build, select the carousel in the browser's Elements panel and get its API in the console:
+
+```js
+const api = Spill.SpillAuto.get($0); // $0 is the element selected in the Elements panel
+```
+
+With ES modules nothing is global. While you debug, put the API on `window` yourself: `window.api = api`.
+
+## Log every event
+
+Every event's callback gets the API and the event's name, so one function can log them all:
+
+```js
+const events = [
+  "init", "reInit", "destroy", "select", "scroll", "settle", "resize",
+  "slidesInView", "slidesChanged", "slideFocusStart", "slideFocus", "pointerDown", "pointerUp",
+  "autoplay:play", "autoplay:stop", "autoplay:select", "autoplay:timerset", "autoplay:timerstopped",
+];
+
+function logEvents(api) {
+  for (const name of events) {
+    api.on(name, (api, event) => {
+      console.log(event, "snap", api.selectedScrollSnap(), "progress", api.scrollProgress().toFixed(2));
+    });
+  }
+}
+
+const api = Spill(viewport, { align: "start" });
+logEvents(api); // right after Spill(), so init is heard too
+```
+
+- `scroll` fires once a frame while the carousel moves. Leave it out for a quieter log.
+- Add the listeners right after `Spill()` returns. `init` fires on the next task, and a later listener misses it.
+- The `autoplay:` events come only with the Autoplay plugin.
+- By attributes, listen for `spill:ready` before `SpillAuto` starts, and log each carousel as it's built: `document.addEventListener("spill:ready", (event) => logEvents(event.detail.api))`.
+
+## Inspect the engine
+
+`api.internalEngine()` isn't Embla's physics engine. It's four values, and they answer most "why does it stop there?" questions:
+
+```js
+const { options, slideRegistry, scrollSnaps, limit } = api.internalEngine();
+
+console.table(scrollSnaps.map((px, snap) => ({ snap, px, slides: slideRegistry[snap].join(", ") })));
+console.log("scroll range", limit.min, "to", limit.max);
+console.log("options in force", options);
+```
+
+| Value | What it is |
+|---|---|
+| `options` | The options in force: the defaults, `Spill.globalOptions`, yours, and the breakpoints that match now. Read it, don't change it — call `api.reInit({ … })` to change an option |
+| `slideRegistry` | Each snap's slides, by index: how `slidesToScroll` and `containScroll` grouped them |
+| `scrollSnaps` | Each snap's scroll position in px, counted forward from 0 (in right to left too) |
+| `limit` | `{ min: 0, max }`, where `max` is how far the viewport can scroll |
+
+What the numbers often tell you:
+
+- **Fewer snaps than you expected,** with `containScroll: "trimSnaps"` (the default): snaps that the edges hold in one place were merged into one. `"keepSnaps"` keeps them all.
+- **`limit.max` is 0:** nothing overflows, so there's nothing to scroll.
+- **Every snap at 0:** the carousel was measured while hidden.
+
+`api.scrollSnapList()` gives the same places on a scale from 0 to 1, and `api.scrollProgress()` gives where the scroll is now, on the same scale.
+
+### In the inspector
+
+Spill's work shows on the elements themselves:
+
+- **The viewport:** `data-spill-viewport`, `data-spill-axis`, `data-spill-draggable`, `data-spill-free` (with `dragFree`) and `data-spill-dragging` (while a mouse drags). Inline, `overflow`, `overscroll-behavior`, `scrollbar-width` and `scroll-snap-type` — which is `none` with `dragFree`, and while Spill animates or a mouse drags.
+- **Each snap's first slide:** `scroll-snap-align: start`, the snap's alignment as `scroll-margin-inline-start` (`scroll-margin-block-start` with `axis: "y"`), and `scroll-snap-stop: always` unless `skipSnaps`.
+- **The container,** with `containScroll: false`: `data-spill-room` and the `--spill-room-start`, `--spill-room-end` and `--spill-room-gap` custom properties. Its `::before` and `::after` are the room before the first snap and after the last ([Markup and CSS](/docs/guides/markup-and-css/#room-for-containscroll-false)). In a browser without constructed stylesheets, padding instead.
+
+## Common problems
+
+| It … | Because … |
+|---|---|
+| doesn't scroll | The slides fit, so nothing overflows. Give the container `display: flex` and the slides a `flex-basis`, with `min-width: 0` |
+| shows a scrollbar | An older browser with neither `scrollbar-width` nor constructed stylesheets. Add `[data-spill-viewport]::-webkit-scrollbar { display: none }` to your CSS |
+| snaps in the wrong place | A `transform` on the container or the slides — they're measured where they're drawn. Or something moved the slides without resizing them or the viewport: call `api.reInit()` |
+| scrolls, though your CSS says `overflow: hidden` | Spill's inline `overflow` wins while it's active. With `active: false`, your CSS decides |
+| has one snap, or measured 0 | It was built while hidden. It measures again when it shows — unless `watchResize` is off: then call `api.reInit()` |
+| ignores a mouse | `watchDrag: false`, or the press started in a field (`input`, `select`, `textarea`, `contenteditable`) |
+| swallows the click after a drag | On purpose: the click a drag ends with isn't a click |
+| never fires your `init` | The listener came too late. Add it right after `Spill()` returns |
+| has buttons or dots out of date | They follow `select` only. Update them on `reInit` too — a rebuild, a breakpoint, slides added or removed and a new size all fire it |
+| moves the wrong way in right to left | `direction: "rtl"` also needs `dir="rtl"` on the viewport or an ancestor |
+| won't scroll as a column | `axis: "y"` needs a height on the viewport and `flex-direction: column` on the container |
+| won't scroll sideways under a finger | `touch-action: pan-y` on the container or the slides (from Embla's CSS) stops it. Remove it |
+| stops at the ends with `loop: true` | `loop` isn't supported, and Spill ignores it ([Coming from Embla](/docs/guides/coming-from-embla/)) |
+| builds nothing from attributes | `SpillAuto` hasn't started. `@bozdev/spill/attributes` doesn't start by itself: call `SpillAuto.start()`, or load `@bozdev/spill/auto` |
+| ignores a plugin in `data-spill-plugins` | The name isn't in `SpillAuto.plugins` (the console says so). Register it, as `auto` does |
+| ignores its options attribute | The JSON isn't valid (the console says so). Use double quotes inside and single quotes around: `data-spill-carousel='{"align":"start"}'` |
+| ignores a control outside it | `data-spill-for` must be the carousel's `id`. And controls are found when the carousel is built: for one added later, `SpillAuto.forget([carousel])`, then `SpillAuto.scan([carousel])` |
+| stops Autoplay for good after a tab or a press | `stopOnFocusIn` and `stopOnInteraction`, both on by default. A play button starts it again |
+
+## Still stuck?
+
+Open an issue on [GitHub](https://github.com/bozdev/spill/issues) with the smallest page that shows the problem, the browser and its version, and what you expected to happen.

@@ -1,0 +1,309 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Options
+description: Every option a carousel takes — its type, its default, and what it changes.
+---
+
+import Align from "../../../examples/align/index.astro";
+import SlidesToScroll from "../../../examples/slides-to-scroll/index.astro";
+import DragFree from "../../../examples/drag-free/index.astro";
+import SkipSnaps from "../../../examples/skip-snaps/index.astro";
+import Callout from "../../../components/Callout.astro";
+
+Options are the second argument of `Spill()`. They have Embla's names and defaults (there is no `loop`), and you only pass the ones you change:
+
+```js
+import Spill from "@bozdev/spill";
+
+const api = Spill(document.querySelector(".viewport"), { align: "start", slidesToScroll: "auto" });
+```
+
+| Option | Default | |
+|---|---|---|
+| [`container`](#container) | `null` | The slides' parent |
+| [`slides`](#slides) | `null` | The slides |
+| [`axis`](#axis) | `"x"` | A row or a column |
+| [`direction`](#direction) | `"ltr"` | Left to right or right to left |
+| [`align`](#align) | `"center"` | Where a snap sits in the viewport |
+| [`slidesToScroll`](#slidestoscroll) | `1` | How many slides make a snap |
+| [`containScroll`](#containscroll) | `"trimSnaps"` | What happens to snaps at the edges |
+| [`startIndex`](#startindex) | `0` | The snap it starts on |
+| [`duration`](#duration) | `25` | How long a programmatic move takes |
+| [`dragFree`](#dragfree) | `false` | No snapping |
+| [`dragThreshold`](#dragthreshold) | `10` | How far a mouse moves before it drags |
+| [`skipSnaps`](#skipsnaps) | `false` | A throw can pass several snaps |
+| [`active`](#active) | `true` | On or off |
+| [`breakpoints`](#breakpoints) | `{}` | Options for media queries |
+| [`inViewThreshold`](#inviewthreshold) | `0` | How much of a slide shows to count as in view |
+| [`watchDrag`](#watchdrag) | `true` | Mouse dragging, and scrolling by hand |
+| [`watchResize`](#watchresize) | `true` | Measured again after a size changes |
+| [`watchSlides`](#watchslides) | `true` | Rebuilt when slides come or go |
+| [`watchFocus`](#watchfocus) | `true` | A focus in a slide brings its snap |
+
+## Layout
+
+### `container`
+
+**Type** `string | HTMLElement | null` · **Default** `null`
+
+The slides' parent. A selector is looked up inside the viewport (the first match, at any depth); an element is used as it is. `null` — or a selector that finds nothing — takes the viewport's first child. With no container at all, Spill stays off.
+
+```js
+Spill(viewport, { container: ".track" });
+```
+
+### `slides`
+
+**Type** `string | HTMLElement[] | NodeList | null` · **Default** `null`
+
+The slides. A selector is looked up inside the container, at any depth; an array or a NodeList is used as it is. `null` takes the container's children. A rebuild looks a selector up again, while elements you gave stay the ones you gave — pass new ones with `api.reInit({ slides })`.
+
+```js
+Spill(viewport, { slides: ".slide" });
+```
+
+### `axis`
+
+**Type** `"x" | "y"` · **Default** `"x"`
+
+`"x"` is a row, scrolled sideways. `"y"` is a column: give the viewport a height and the container `flex-direction: column`, and Spill scrolls it up and down (`overflow-y`, a `y` snap type, `data-spill-axis="y"` on the viewport). See the [vertical example](/examples/#vertical).
+
+```js
+Spill(viewport, { axis: "y" });
+```
+
+### `direction`
+
+**Type** `"ltr" | "rtl"` · **Default** `"ltr"`
+
+`"rtl"` is a right-to-left row: the first slide on the right, the next ones to its left. Set `dir="rtl"` on the viewport or an ancestor as well — the browser lays the row out, Spill reads it; you need both. It applies to `axis: "x"` only. See the [right-to-left example](/examples/#right-to-left).
+
+```js
+Spill(viewport, { direction: "rtl" });
+```
+
+### `align`
+
+**Type** `"start" | "center" | "end" | function` · **Default** `"center"`
+
+Where a snap sits in the viewport: its start at the viewport's start, in the middle, or its end at the viewport's end. A snap is a slide — or a group of them, with `slidesToScroll`. In a right-to-left row, the start is the right edge.
+
+<Align />
+
+The scroll can't go before its start or past its end, so near the edges a snap can't always take its place: the first snap sits at the start whatever the align, and the last at the end. [`containScroll: false`](#containscroll) adds room so that every snap can.
+
+A function places each snap yourself. It gets the viewport's size (`clientWidth`, or `clientHeight` with `axis: "y"`), the snap's size (from its first slide's start to its last slide's end) and the snap's index, and returns how far from the viewport's start the snap's start sits, in pixels. `"start"` is `0`, `"center"` is `(viewSize - snapSize) / 2`, `"end"` is `viewSize - snapSize`.
+
+```js
+// Every snap a tenth of the way in
+Spill(viewport, { align: (viewSize, snapSize, index) => viewSize * 0.1 });
+```
+
+### `slidesToScroll`
+
+**Type** `number | "auto"` · **Default** `1`
+
+How many slides make one snap — what one `scrollNext()`, one dot or one throw moves. A number groups that many slides in order (the last group can hold fewer). `"auto"` groups as many as fit in the viewport, measured; when your CSS changes the slides' sizes, the groups follow. Spill reads the sizes and never sets them: how many slides show is up to your CSS.
+
+```js
+Spill(viewport, { slidesToScroll: 2 });
+Spill(viewport, { slidesToScroll: "auto" });
+```
+
+<SlidesToScroll />
+
+### `containScroll`
+
+**Type** `"trimSnaps" | "keepSnaps" | false` · **Default** `"trimSnaps"`
+
+The scroll stops at its two ends, so near them several snaps can come out at the same place.
+
+- `"trimSnaps"` makes those one snap, holding all their slides: no step that doesn't move.
+- `"keepSnaps"` keeps every snap, even where several sit at the same place — the selection then moves while the scroll stays.
+- `false` gives the row room at both ends, so that every snap takes its place — the first slide centered with `align: "center"`. The room is the container's `::before` and `::after`: two empty flex items, from one constructed stylesheet Spill adds (no file, no `<style>`, nothing a Content Security Policy blocks), shaped by a `data-spill-room` attribute and the `--spill-room-start`, `--spill-room-end` and `--spill-room-gap` custom properties Spill sets on the container. Slides sized in `%` keep their size. Leave the container's `::before` and `::after` to Spill. In a browser without constructed stylesheets, Spill pads the container instead. `destroy()` takes it all away.
+
+```js
+Spill(viewport, { align: "center", containScroll: false });
+```
+
+## Scrolling
+
+### `startIndex`
+
+**Type** `number` · **Default** `0`
+
+The snap it starts on (rounded, and held within the snaps), placed at once without an animation. Given to `reInit()`, it's where the rebuilt carousel starts; without it, a rebuild keeps the selected snap.
+
+```js
+Spill(viewport, { startIndex: 2 });
+```
+
+### `duration`
+
+**Type** `number` · **Default** `25`
+
+How long a programmatic move takes — `scrollTo()`, `scrollNext()`, `scrollPrev()`, a mouse's release, a focus — in steps of 16 ms (25 is about 400 ms), eased out. 20 to 60 is the useful range: higher is slower. `0` jumps. With `prefers-reduced-motion: reduce`, every move jumps. A finger's or a trackpad's scroll is the browser's own and doesn't use it.
+
+```js
+Spill(viewport, { duration: 40 }); // about 640 ms
+```
+
+### `dragFree`
+
+**Type** `boolean` · **Default** `false`
+
+No snapping: the viewport gets `scroll-snap-type: none` and `data-spill-free`. A throw — a finger's, or a mouse's, which carries its speed on for a moment — glides and rests wherever it ends. The snaps are still there for the API: `scrollTo()` and the buttons go to them, and the selected snap follows the nearest one as the row moves.
+
+```js
+Spill(viewport, { dragFree: true });
+```
+
+<DragFree />
+
+### `dragThreshold`
+
+**Type** `number` · **Default** `10`
+
+How many pixels a pressed mouse moves before it drags. A shorter move is a click, so links and buttons in a slide still work; the click a real drag ends with is swallowed. A finger isn't affected: its scroll is the browser's.
+
+```js
+Spill(viewport, { dragThreshold: 4 });
+```
+
+### `skipSnaps`
+
+**Type** `boolean` · **Default** `false`
+
+`false`: a throw moves one snap at most. Under a finger, each snap's first slide carries `scroll-snap-stop: always`; a mouse's throw is held to the next snap. `true`: a strong throw can pass several snaps and stops at the one nearest where its momentum runs out.
+
+```js
+Spill(viewport, { skipSnaps: true });
+```
+
+<SkipSnaps />
+
+## Behavior
+
+### `active`
+
+**Type** `boolean` · **Default** `true`
+
+`false` makes Spill step aside: it writes nothing, listens to nothing but its breakpoints, starts no plugins, and your CSS alone lays the slides out. The API is still there — its methods return empty values and the moves do nothing — and `init` still fires. It's most useful in breakpoints: a carousel on a phone, a grid on a desktop.
+
+```js
+Spill(viewport, { breakpoints: { "(min-width: 1024px)": { active: false } } });
+```
+
+### `breakpoints`
+
+**Type** `object` (a media query → options) · **Default** `{}`
+
+Options for media queries. While a query matches, its options are merged over the others; when several match, they merge in the order written, so a later one wins. When a query starts or stops matching, the carousel is rebuilt: `reInit` fires, and the selected snap is kept. The breakpoints in `Spill.globalOptions` and in a plugin's options are watched as well. More in [Breakpoints](/docs/guides/breakpoints/).
+
+```js
+Spill(viewport, {
+  align: "start",
+  breakpoints: {
+    "(min-width: 768px)": { slidesToScroll: 2 },
+    "(min-width: 1200px)": { active: false },
+  },
+});
+```
+
+### `inViewThreshold`
+
+**Type** `number | number[]` · **Default** `0`
+
+How much of a slide has to show for it to count as in view — for `slidesInView()`, the `slidesInView` event and the ClassNames plugin's `is-in-view`. `0` is any part of it, `0.5` half of it. It's an IntersectionObserver's threshold, measured against the viewport; with an array, its smallest value decides.
+
+```js
+Spill(viewport, { inViewThreshold: 0.5 });
+```
+
+## Watching
+
+Each of these takes `true` (the default), `false`, or a function. A function is asked every time, with the API and what happened. Return `true` to let Spill do its part; return `false` — or nothing — and Spill skips it this time.
+
+### `watchDrag`
+
+**Type** `boolean | (api, event: PointerEvent) => boolean` · **Default** `true`
+
+`true`: a mouse drags the carousel — Spill's own drag, since a finger and a trackpad scroll it natively anyway. A press in a form field (`input`, `select`, `textarea`, `contenteditable`) never drags.
+
+`false`: no mouse drag, and no scrolling by hand at all — the viewport gets `overflow: hidden`, so a finger, a trackpad and the wheel don't move it either. The API still does.
+
+A function is asked on each press of a mouse's main button on the viewport, with its `pointerdown` event; return `true` to drag. It isn't asked for a finger or a pen — their scroll is the browser's — and the viewport keeps `overflow: auto` and `data-spill-draggable`.
+
+```js
+// No drag from a press on anything marked .no-drag
+Spill(viewport, { watchDrag: (api, event) => !event.target.closest(".no-drag") });
+```
+
+### `watchResize`
+
+**Type** `boolean | (api, entries: ResizeObserverEntry[]) => boolean` · **Default** `true`
+
+`true`: when the viewport or a slide changes size along the axis (by half a pixel or more), Spill measures again, puts the selected snap back in its place, and fires `reInit`, then `resize`. A carousel built while hidden — in a closed tab or a dialog — measures itself this way once it shows.
+
+`false`: no ResizeObserver. After a change in size, call `api.reInit()` yourself.
+
+A function gets the ResizeObserver's entries — the viewport and the slides that changed, in either direction — before Spill looks at them; return `true` to let Spill go on (it still measures only when a size along the axis changed).
+
+```js
+// Only the viewport's own size counts
+Spill(viewport, { watchResize: (api, entries) => entries.some((entry) => entry.target === api.rootNode()) });
+```
+
+### `watchSlides`
+
+**Type** `boolean | (api, mutations: MutationRecord[]) => boolean` · **Default** `true`
+
+`true`: when children are added to the container or removed from it, the carousel is rebuilt with its slides found again, and fires `reInit`, then `slidesChanged`. Only the container's own children are watched, not deeper changes.
+
+`false`: not watched. After changing the slides, call `api.reInit()`.
+
+A function gets the MutationObserver's records; return `true` to rebuild.
+
+```js
+// Rebuilt only when slides were added
+Spill(viewport, { watchSlides: (api, mutations) => mutations.some((mutation) => mutation.addedNodes.length > 0) });
+```
+
+### `watchFocus`
+
+**Type** `boolean | (api, event: FocusEvent) => boolean` · **Default** `true`
+
+`true`: when focus lands inside a slide — Tab to a link in it — Spill scrolls to that slide's snap and fires `slideFocusStart`, then `slideFocus`.
+
+`false`: Spill leaves it to the browser, which still brings the focused element into view (the viewport is a real scrolling box); the selected snap follows the scroll.
+
+A function gets the `focusin` event; return `true` to scroll to the snap.
+
+```js
+// A field in a slide: the browser's own scroll is enough
+Spill(viewport, { watchFocus: (api, event) => !event.target.matches("input, textarea") });
+```
+
+## Global options
+
+`Spill.globalOptions` holds options every carousel starts from, under its own. It's read whenever a carousel is built or rebuilt, so set it before building them; its breakpoints are watched too.
+
+```js
+import Spill from "@bozdev/spill";
+
+Spill.globalOptions = { align: "start", duration: 30 };
+```
+
+Each built-in plugin has its own: `Autoplay.globalOptions`, `ClassNames.globalOptions`, `AutoHeight.globalOptions`.
+
+## How options combine
+
+The options in force are merged in this order, a later one winning: the defaults, `Spill.globalOptions`, the carousel's own options, then its breakpoints that match. Plain objects merge key by key — `breakpoints` from the global options and from a carousel's own combine — while anything else (an array, a function, an element) is replaced.
+
+- `api.reInit(options)` merges the new options into the ones given before: they add up from one call to the next.
+- `api.internalEngine().options` returns the options in force.
+- `defaultOptions` is exported, frozen: `import { defaultOptions } from "@bozdev/spill"`.
+
+<Callout kind="tip" title="By attributes">
+  A carousel built [by attributes](/docs/attributes/) takes its options as JSON in `data-spill-carousel`, so the function forms of `align` and the `watch` options, and elements for `container` and `slides`, aren't available there — selectors are.
+</Callout>

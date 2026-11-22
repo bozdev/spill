@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="f" x1="4" y1="6" x2="30" y2="26" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9368f0" />
+      <stop offset="1" stop-color="#65dda9" />
+    </linearGradient>
+  </defs>
+  <style>.frame { stroke: #111114 } @media (prefers-color-scheme: dark) { .frame { stroke: #ffffff } }</style>
+  <rect class="frame" x="2.5" y="6.5" width="22" height="19" rx="5" stroke-width="2" />
+  <rect x="6" y="10" width="7" height="12" rx="2" fill="url(#f)" />
+  <rect x="15" y="10" width="7" height="12" rx="2" fill="url(#f)" opacity="0.8" />
+  <rect x="24" y="10" width="7" height="12" rx="2" fill="url(#f)" opacity="0.45" />
+</svg>

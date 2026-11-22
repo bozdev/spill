@@ -1,0 +1,5 @@
+{
+  "title": "Slides to scroll",
+  "description": "Several slides in view and a snap a page: slidesToScroll \"auto\" groups as many as fit — two in a narrow carousel, three in a wide one.",
+  "order": 3
+}

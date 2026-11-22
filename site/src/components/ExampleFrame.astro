@@ -1,0 +1,46 @@
+---
+// A live example over its code: the markup is the page's (set:html), its script runs beside it (the example's own
+// index.astro loads it), and the tabs show the same files — the code shown is the code running.
+import { Code } from "astro:components";
+
+type Props = { slug: string; title?: string; html: string; css?: string; js: string; caption?: boolean };
+const { slug, title, html, css, js, caption = true } = Astro.props as Props;
+const tabs = [
+  { name: "HTML", code: html.trim(), lang: "html" as const },
+  ...(css?.trim() ? [{ name: "CSS", code: css.trim(), lang: "css" as const }] : []),
+  { name: "JS", code: js.trim(), lang: "js" as const },
+];
+const first = tabs.length - 1; // the script first: it's what an example shows
+---
+<figure class="example" id={`example-${slug}`}>
+  {caption && title && (
+    <figcaption class="example-head">
+      <p class="example-title">{title}</p>
+    </figcaption>
+  )}
+  <div class="example-stage" set:html={html} />
+  <div class="example-code" data-tabs>
+    <div class="example-tabs" role="tablist" aria-label={`${title ?? slug}: the code`}>
+      {tabs.map((tab, index) => (
+        <button
+          type="button"
+          role="tab"
+          id={`${slug}-tab-${tab.name}`}
+          aria-controls={`${slug}-panel-${tab.name}`}
+          aria-selected={index === first ? "true" : "false"}
+          tabindex={index === first ? 0 : -1}
+        >
+          {tab.name}
+        </button>
+      ))}
+      <button class="icon-button copy" type="button" data-copy-panel aria-label="Copy this code" title="Copy">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+      </button>
+    </div>
+    {tabs.map((tab, index) => (
+      <div class="example-panel" role="tabpanel" id={`${slug}-panel-${tab.name}`} aria-labelledby={`${slug}-tab-${tab.name}`} hidden={index !== first}>
+        <Code code={tab.code} lang={tab.lang} themes={{ light: "github-light", dark: "github-dark" }} defaultColor={false} />
+      </div>
+    ))}
+  </div>
+</figure>

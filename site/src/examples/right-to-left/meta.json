@@ -1,0 +1,5 @@
+{
+  "title": "Right to left",
+  "description": "direction \"rtl\" with dir=\"rtl\" on the carousel: the first slide on the right, the next one to its left, and the buttons mirrored.",
+  "order": 8
+}

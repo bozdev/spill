@@ -1,0 +1,302 @@
+---
+layout: ../../layouts/Docs.astro
+title: Frameworks
+description: There are no wrapper packages, and none are needed — Spill takes an element, so any framework can hand it one.
+---
+
+import Callout from "../../components/Callout.astro";
+
+In any framework the pattern is the same: once the component is in the page, give `Spill()` its viewport, and call `api.destroy()` when the component goes. The snippets below use the markup and CSS from the [Quick start](/docs/quick-start/).
+
+When the framework adds or removes slides, you don't need to do anything: Spill notices and rebuilds itself (`watchSlides`), keeping the selected snap.
+
+## React
+
+A ref on the viewport, and an effect that builds the carousel and destroys it in its cleanup:
+
+```jsx
+import { useEffect, useRef } from "react";
+import Spill from "@bozdev/spill";
+
+export function Carousel({ slides }) {
+  const viewportRef = useRef(null);
+
+  useEffect(() => {
+    const api = Spill(viewportRef.current, { align: "start" });
+    return () => api.destroy();
+  }, []);
+
+  return (
+    <div className="viewport" ref={viewportRef}>
+      <div className="container">
+        {slides.map((slide) => (
+          <div className="slide" key={slide.id}>
+            {slide.content}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+In development, Strict Mode builds it, destroys it and builds it again. That's fine: `destroy()` takes away everything Spill wrote.
+
+### A useSpill hook
+
+To use the API in the component — buttons, dots, state — keep it in state. The hook returns the ref for the viewport and the API, `null` until the carousel is built:
+
+```jsx
+import { useEffect, useRef, useState } from "react";
+import Spill from "@bozdev/spill";
+
+export function useSpill(options, plugins) {
+  const viewportRef = useRef(null);
+  const [api, setApi] = useState(null);
+
+  useEffect(() => {
+    const carousel = Spill(viewportRef.current, options, plugins);
+    setApi(carousel);
+    return () => {
+      carousel.destroy();
+      setApi(null);
+    };
+  }, [options, plugins]);
+
+  return [viewportRef, api];
+}
+```
+
+The options and the plugins are its dependencies, so keep them the same objects from one render to the next — options outside the component, plugins in `useMemo` — or the carousel is built again on every render. A plugin is one carousel's: create it in the component, not at the module's top.
+
+```jsx
+import { useEffect, useMemo, useState } from "react";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+import { useSpill } from "./use-spill.js";
+
+const options = { align: "start" };
+
+export function Gallery({ slides }) {
+  const plugins = useMemo(() => [Autoplay({ delay: 5000 })], []);
+  const [viewportRef, api] = useSpill(options, plugins);
+  const [edges, setEdges] = useState({ prev: false, next: false });
+
+  useEffect(() => {
+    if (!api) return;
+    const update = () => setEdges({ prev: api.canScrollPrev(), next: api.canScrollNext() });
+    update();
+    api.on("select", update).on("reInit", update);
+    return () => {
+      api.off("select", update).off("reInit", update);
+    };
+  }, [api]);
+
+  return (
+    <div className="carousel">
+      <div className="viewport" ref={viewportRef}>
+        <div className="container">
+          {slides.map((slide, index) => (
+            <div className="slide" key={index}>
+              {slide}
+            </div>
+          ))}
+        </div>
+      </div>
+      <button type="button" disabled={!edges.prev} onClick={() => api?.scrollPrev()}>
+        Previous
+      </button>
+      <button type="button" disabled={!edges.next} onClick={() => api?.scrollNext()}>
+        Next
+      </button>
+    </div>
+  );
+}
+```
+
+## Vue
+
+A template ref, `onMounted` to build it, `onBeforeUnmount` to destroy it. Keep the API in a `shallowRef` — it doesn't need to be made deeply reactive.
+
+```vue
+<script setup>
+import { onBeforeUnmount, onMounted, ref, shallowRef, useTemplateRef } from "vue";
+import Spill from "@bozdev/spill";
+
+defineProps({ slides: { type: Array, required: true } });
+
+// A name of its own (not the ref's): the template's ref="viewport" fills it
+const viewportEl = useTemplateRef("viewport");
+const api = shallowRef(null);
+const canPrev = ref(false);
+const canNext = ref(false);
+
+// A listener gets the API first: (api, eventName)
+const update = (carousel) => {
+  canPrev.value = carousel.canScrollPrev();
+  canNext.value = carousel.canScrollNext();
+};
+
+onMounted(() => {
+  api.value = Spill(viewportEl.value, { align: "start" });
+  api.value.on("init", update).on("select", update).on("reInit", update);
+});
+
+onBeforeUnmount(() => {
+  api.value?.destroy();
+});
+</script>
+
+<template>
+  <div class="carousel">
+    <div ref="viewport" class="viewport">
+      <div class="container">
+        <div v-for="(slide, index) in slides" :key="index" class="slide">{{ slide }}</div>
+      </div>
+    </div>
+    <button type="button" :disabled="!canPrev" @click="api?.scrollPrev()">Previous</button>
+    <button type="button" :disabled="!canNext" @click="api?.scrollNext()">Next</button>
+  </div>
+</template>
+```
+
+`useTemplateRef()` is Vue 3.5's; before it, `const viewport = ref(null)` with the same name as the template's `ref`.
+
+## Svelte
+
+An action: Svelte calls it with the element once it's in the page, and calls its `destroy` when the element goes. Keep the API in `$state.raw`, so Svelte doesn't wrap it in a proxy.
+
+```svelte
+<script>
+  import Spill from "@bozdev/spill";
+
+  let { slides } = $props();
+  let api = $state.raw(null);
+
+  function spill(viewport, options) {
+    const carousel = Spill(viewport, options);
+    api = carousel;
+    return {
+      update(next) {
+        carousel.reInit(next);
+      },
+      destroy() {
+        carousel.destroy();
+        api = null;
+      },
+    };
+  }
+</script>
+
+<div class="carousel">
+  <div class="viewport" use:spill={{ align: "start" }}>
+    <div class="container">
+      {#each slides as slide}
+        <div class="slide">{slide}</div>
+      {/each}
+    </div>
+  </div>
+  <button type="button" onclick={() => api?.scrollPrev()}>Previous</button>
+  <button type="button" onclick={() => api?.scrollNext()}>Next</button>
+</div>
+```
+
+This is Svelte 5. An `$effect` with `bind:this` on the viewport works too: build the carousel in it and return `() => carousel.destroy()`.
+
+## Solid
+
+A ref, `onMount` to build it, `onCleanup` to destroy it. A signal holds the API for the buttons.
+
+```jsx
+import { createSignal, For, onCleanup, onMount } from "solid-js";
+import Spill from "@bozdev/spill";
+
+export function Carousel(props) {
+  let viewport;
+  const [api, setApi] = createSignal(null);
+
+  onMount(() => {
+    const carousel = Spill(viewport, { align: "start" });
+    setApi(carousel);
+    onCleanup(() => carousel.destroy());
+  });
+
+  return (
+    <div class="carousel">
+      <div class="viewport" ref={viewport}>
+        <div class="container">
+          <For each={props.slides}>{(slide) => <div class="slide">{slide}</div>}</For>
+        </div>
+      </div>
+      <button type="button" onClick={() => api()?.scrollPrev()}>
+        Previous
+      </button>
+      <button type="button" onClick={() => api()?.scrollNext()}>
+        Next
+      </button>
+    </div>
+  );
+}
+```
+
+## Astro
+
+An Astro component is HTML, so a `<script>` in it does the work. Astro bundles the script and runs it once on the page, however many times the component is used — so it builds every one:
+
+```astro
+---
+const { slides } = Astro.props;
+---
+<div class="carousel" data-carousel>
+  <div class="viewport">
+    <div class="container">
+      {slides.map((slide) => <div class="slide">{slide}</div>)}
+    </div>
+  </div>
+  <button type="button" data-prev>Previous</button>
+  <button type="button" data-next>Next</button>
+</div>
+
+<script>
+  import Spill from "@bozdev/spill";
+
+  for (const root of document.querySelectorAll<HTMLElement>("[data-carousel]")) {
+    const api = Spill(root.querySelector<HTMLElement>(".viewport")!, { align: "start" });
+    root.querySelector("[data-prev]")?.addEventListener("click", () => api.scrollPrev());
+    root.querySelector("[data-next]")?.addEventListener("click", () => api.scrollNext());
+  }
+</script>
+```
+
+Or no code at all: write the carousel [by attributes](/docs/attributes/), and the script is one line — `import "@bozdev/spill/auto";`.
+
+## Server rendering
+
+Spill measures the page, so it's built in the browser, once the markup is in the document. `useEffect`, `onMounted`, a Svelte action and `onMount` all run only there — the snippets above are safe in Next.js, Nuxt, SvelteKit and SolidStart as they are. In Next.js's App Router, put `"use client"` at the top of the component's file.
+
+Importing `@bozdev/spill` on the server is safe: nothing runs until you call it. `@bozdev/spill/auto` starts at once and needs the document, so import it only in code that runs in the browser — an Astro `<script>`, a client entry.
+
+Until the script runs, the server's HTML is a plain row: with `overflow-x: auto` on the viewport, it scrolls and reads as it is.
+
+## SpillAuto with client-side routers
+
+In a framework's components, build the carousel with `Spill()` as above. The framework knows when a component comes and goes, and it owns the markup — SpillAuto writes labels and dots into it, possibly before the page is hydrated.
+
+SpillAuto suits HTML that comes from the server: Astro components, server templates, a CMS. `SpillAuto.start()` watches the page, so the carousels a client-side router swaps in are built, and the ones it swaps out are taken down. To say when yourself, start without watching and use `scan` and `forget` — here with Astro's view transitions (`<ClientRouter />`):
+
+```js
+import { SpillAuto } from "@bozdev/spill/attributes";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+
+SpillAuto.plugins = { autoplay: Autoplay };
+SpillAuto.start({ observe: false });
+
+// The old page's carousels down before the swap, the new page's built after it
+document.addEventListener("astro:before-swap", () => SpillAuto.forget([document.body]));
+document.addEventListener("astro:after-swap", () => SpillAuto.scan([document.body]));
+```
+
+<Callout title="Carousels built by hand">
+  With `Spill()` and a router of the same kind, it's the same pair of moments: `destroy()` each carousel before the swap, and build the new page's after it.
+</Callout>
+
+More on `start()`, `scan()` and `forget()`: [By attributes](/docs/attributes/#routers).

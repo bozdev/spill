@@ -1,0 +1,5 @@
+{
+  "title": "Align",
+  "description": "Where a snap sits in the viewport — start, center or end — switched live with reInit, the selected snap kept.",
+  "order": 2
+}

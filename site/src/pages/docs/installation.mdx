@@ -1,0 +1,201 @@
+---
+layout: ../../layouts/Docs.astro
+title: Installation
+description: Install Spill from npm, load it with a script tag from a CDN, or import its ES modules — the types come with it.
+---
+
+import Callout from "../../components/Callout.astro";
+
+Spill has no dependencies and no stylesheet. Install it with a package manager and import it, or load one built file with a `<script>` tag. Either way, the carousel is the same.
+
+## npm, pnpm, yarn
+
+```sh
+npm install @bozdev/spill
+```
+
+```sh
+pnpm add @bozdev/spill
+```
+
+```sh
+yarn add @bozdev/spill
+```
+
+Then import it:
+
+```js
+import Spill from "@bozdev/spill";
+
+const api = Spill(document.querySelector(".viewport"), { align: "start" });
+```
+
+The package ships its source as ES modules. Your bundler minifies it and leaves out the parts you don't import: the core alone is 4.9 KB minified and gzipped.
+
+## A script tag
+
+`dist/spill.global.js` is built for a `<script>` tag. It defines one global, `Spill`: the carousel function, with the plugins and `SpillAuto` on it.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@bozdev/spill@0.1.0/dist/spill.global.js"></script>
+<script>
+  const api = Spill(document.querySelector(".viewport"), { align: "start" }, [Spill.Autoplay()]);
+</script>
+```
+
+| On `window.Spill` | |
+|---|---|
+| `Spill(viewport, options, plugins)` | The carousel |
+| `Spill.Autoplay`, `Spill.ClassNames`, `Spill.AutoHeight` | The [plugins](/docs/api/plugins/) |
+| `Spill.SpillAuto` | Carousels [by attributes](/docs/attributes/) — not started: register the plugins you name, then call `Spill.SpillAuto.start()` |
+| `Spill.defaultOptions`, `Spill.optionsHandler` | The default options; the options helper plugins get |
+| `Spill.globalOptions` | Options under every carousel's own |
+
+Put the tags after the carousel's markup — at the end of the body — so the element is there when your script runs.
+
+### By attributes
+
+`dist/spill.auto.js` is the same file, started: the three plugins are registered for `data-spill-plugins`, and every `[data-spill-carousel]` on the page builds itself. No script of your own:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@bozdev/spill@0.1.0/dist/spill.auto.js"></script>
+```
+
+It waits for the document to be parsed, so it can go in the `<head>` too. It also defines `window.Spill`. See [By attributes](/docs/attributes/) for the markup.
+
+### unpkg
+
+The same files are on unpkg:
+
+```html
+<script src="https://unpkg.com/@bozdev/spill@0.1.0/dist/spill.global.js"></script>
+```
+
+Without a file path, both CDNs serve `dist/spill.global.js` — the package names it in its `jsdelivr` and `unpkg` fields.
+
+<Callout kind="tip" title="Pin the version">
+  Keep the exact version in the URL (`@0.1.0`). A page that loads whatever is newest can change under you.
+</Callout>
+
+## ES modules
+
+### From the package
+
+The package's entry points, each with its types:
+
+| Import | What it gives |
+|---|---|
+| `@bozdev/spill` | Every part, by name: `Spill` (also the default export), `Autoplay`, `ClassNames`, `AutoHeight`, `SpillAuto`, `defaultOptions`, `optionsHandler`, and the plugins' defaults (`autoplayDefaults`, `classNamesDefaults`, `autoHeightDefaults`) |
+| `@bozdev/spill/core` | The carousel alone: `Spill` (the default export), `defaultOptions`, `optionsHandler` |
+| `@bozdev/spill/plugins/autoplay` | Autoplay (the default export) |
+| `@bozdev/spill/plugins/class-names` | ClassNames |
+| `@bozdev/spill/plugins/auto-height` | AutoHeight |
+| `@bozdev/spill/attributes` | `SpillAuto` — nothing registered, not started |
+| `@bozdev/spill/auto` | Carousels by attributes, started: the three plugins registered and `SpillAuto.start()` called when it's imported. It also exports what `@bozdev/spill` does, the default `Spill` too |
+| `@bozdev/spill/dist/...` | The built files below |
+
+```js
+// The carousel, and any other part by name
+import Spill, { Autoplay, ClassNames, SpillAuto } from "@bozdev/spill";
+```
+
+```js
+// One part from its own module
+import Spill from "@bozdev/spill/core";
+import Autoplay from "@bozdev/spill/plugins/autoplay";
+import { SpillAuto } from "@bozdev/spill/attributes";
+```
+
+```js
+// By attributes: every [data-spill-carousel] on the page builds itself
+import "@bozdev/spill/auto";
+```
+
+```js
+// Built and minified: every part in one file…
+import { Spill, Autoplay } from "@bozdev/spill/dist/spill.esm.js";
+```
+
+```js
+// …or the core alone
+import Spill from "@bozdev/spill/dist/esm/spill.js";
+```
+
+### In the browser, without a bundler
+
+A browser doesn't know the package's name. Map it to a CDN's file with an import map, or import the file's URL:
+
+```html
+<script type="importmap">
+  {
+    "imports": {
+      "@bozdev/spill": "https://cdn.jsdelivr.net/npm/@bozdev/spill@0.1.0/dist/spill.esm.js"
+    }
+  }
+</script>
+<script type="module">
+  import { Spill, Autoplay } from "@bozdev/spill";
+
+  Spill(document.querySelector(".viewport"), { align: "start" }, [Autoplay()]);
+</script>
+```
+
+```html
+<script type="module">
+  import Spill from "https://cdn.jsdelivr.net/npm/@bozdev/spill@0.1.0/dist/esm/spill.js";
+  import Autoplay from "https://cdn.jsdelivr.net/npm/@bozdev/spill@0.1.0/dist/esm/plugins/autoplay.js";
+
+  Spill(document.querySelector(".viewport"), { align: "start" }, [Autoplay()]);
+</script>
+```
+
+## What's in `dist/`
+
+Built and minified. The sizes are each file's own: minified, then compressed with gzip and with Brotli (1 KB = 1000 bytes):
+
+| File | What | Minified | gzip | Brotli |
+|---|---|---|---|---|
+| `spill.esm.js` | Every part, one ES module (the same exports as `@bozdev/spill`) | 21.3 KB | 8.0 KB | 7.3 KB |
+| `spill.global.js` | For a `<script>` tag: `window.Spill` | 21.7 KB | 8.2 KB | 7.5 KB |
+| `spill.auto.js` | For a `<script>` tag, by attributes: `window.Spill`, the plugins registered, `SpillAuto` started | 21.9 KB | 8.3 KB | 7.5 KB |
+| `esm/spill.js` | The core alone (what `@bozdev/spill/core` is) | 12.6 KB | 4.9 KB | 4.5 KB |
+| `esm/attributes.js` | `SpillAuto` (it imports `./spill.js`) | 5.2 KB | 2.2 KB | 2.0 KB |
+| `esm/plugins/autoplay.js` | Autoplay | 1.9 KB | 1.0 KB | 0.8 KB |
+| `esm/plugins/class-names.js` | ClassNames | 1.3 KB | 0.7 KB | 0.6 KB |
+| `esm/plugins/auto-height.js` | AutoHeight | 0.8 KB | 0.5 KB | 0.4 KB |
+
+The files in `esm/` are the source's modules one by one: load the core alone, and a plugin only where a carousel uses it. For comparison, Embla's core (8.6.0, measured the same way) is 17.9 KB minified, 7.2 KB gzip.
+
+## TypeScript
+
+The types come with the package, in `types/` — there's no separate `@types` package to install. Each entry point names its own, so TypeScript finds them through the package's `exports` (`moduleResolution` set to `"bundler"`, `"node16"` or `"nodenext"`).
+
+```ts
+import Spill, { Autoplay } from "@bozdev/spill";
+import type { AutoplayType, SpillApi, SpillOptions } from "@bozdev/spill";
+
+const options: SpillOptions = { align: "start", slidesToScroll: "auto" };
+const viewport = document.querySelector<HTMLElement>(".viewport")!;
+const api: SpillApi = Spill(viewport, options, [Autoplay({ delay: 5000 })]);
+
+api.on("select", (carousel) => console.log(carousel.selectedScrollSnap()));
+
+const autoplay = api.plugins().autoplay as AutoplayType;
+autoplay.stop();
+```
+
+| Type | |
+|---|---|
+| `SpillApi` | A carousel's API: what `Spill()` returns |
+| `SpillOptions` | The [options](/docs/api/options/) |
+| `SpillAlign` | `align`'s value: `"start"`, `"center"`, `"end"`, or a function |
+| `SpillPlugin` | A plugin's shape: `name`, `options`, `init()`, `destroy()` and its own methods |
+| `SpillEngine` | What `internalEngine()` returns |
+| `SpillEventName` | The core's [events](/docs/api/events/) |
+| `SpillEventType` | An event name: the core's, or a plugin's (`"autoplay:play"`) |
+| `SpillEventCallback` | A listener: `(api, eventName) => void` |
+| `AutoplayOptions`, `ClassNamesOptions`, `AutoHeightOptions` | Each plugin's options |
+| `AutoplayType`, `ClassNamesType`, `AutoHeightType` | Each plugin's instance, with its methods |
+| `SpillWords` | The labels `SpillAuto` writes ([By attributes](/docs/attributes/#words)) |
+
+`api.plugins()` gives the plugins as `SpillPlugin`s; cast one to its own type, as above, for its methods. `SpillAuto.get()` returns a `SpillApi` or `null`, and `SpillAuto.all()` a `Map<HTMLElement, SpillApi>`. The built files in `dist/` have no types of their own: from TypeScript, import the entry points.

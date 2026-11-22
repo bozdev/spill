@@ -1,0 +1,14 @@
+{
+  "name": "spill-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --port 4331",
+    "build": "astro build",
+    "preview": "astro preview --port 4331"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "8.0.3",
+    "astro": "7.3.8"
+  }
+}

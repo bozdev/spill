@@ -1,0 +1,140 @@
+---
+layout: ../../../layouts/Docs.astro
+title: Class names
+description: ClassNames puts classes on the slides and the viewport as the carousel's state changes — the selected snap, the slides in view, a drag — for your CSS to style.
+---
+
+import ClassNamesExample from "../../../examples/class-names/index.astro";
+import Callout from "../../../components/Callout.astro";
+
+<ClassNamesExample />
+
+ClassNames has embla-carousel-class-names' options, by the same names. It only adds and removes classes; the look is your CSS.
+
+## Add it
+
+```js
+import Spill from "@bozdev/spill";
+import ClassNames from "@bozdev/spill/plugins/class-names";
+
+const api = Spill(viewport, { align: "center" }, [ClassNames()]);
+```
+
+It is also a named export of the package, `import { ClassNames } from "@bozdev/spill"`, and `Spill.ClassNames` with a `<script>` tag. By attributes, it is `class-names`, its options in `data-spill-class-names`:
+
+```html
+<div data-spill-carousel data-spill-plugins="class-names" data-spill-class-names='{"snapped":"is-active"}'>
+  …
+</div>
+```
+
+In `api.plugins()` it is `classNames`.
+
+## Options
+
+| Option | Default | |
+|---|---|---|
+| `active` | `true` | `false`: no classes |
+| `breakpoints` | `{}` | Options by media query, merged in while it matches ([Breakpoints](#breakpoints)) |
+| `snapped` | `"is-snapped"` | On the selected snap's slides |
+| `inView` | `"is-in-view"` | On the slides in view |
+| `draggable` | `"is-draggable"` | On the viewport, when a mouse can drag it |
+| `dragging` | `"is-dragging"` | On the viewport, while it is pressed |
+
+Each class is a string — several separated by spaces — or an array. An empty string writes none:
+
+```js
+ClassNames({
+  snapped: "is-active",
+  inView: ["is-visible", "is-seen"],
+  dragging: "", // no class for this one
+});
+```
+
+`ClassNames.globalOptions` holds options every ClassNames starts from, under its own — as `Spill.globalOptions` does for the carousel.
+
+## Which element, and when
+
+| Option | On | When |
+|---|---|---|
+| `snapped` | Each slide of the selected snap — one, or several with `slidesToScroll` or at a trimmed edge | When the carousel is built, then on every `select` and `reInit` (a new size can regroup the snaps). Under a finger it moves as soon as another snap is nearest, before the scroll comes to rest |
+| `inView` | Each slide in view: any part of it, or as much as `inViewThreshold` asks | On every `slidesInView` — the first one a moment after the carousel is built |
+| `draggable` | The viewport | When the carousel is built, if `watchDrag` isn't `false` |
+| `dragging` | The viewport | From `pointerDown` to `pointerUp`: any press — a mouse's, a finger's, a pen's — a click included. A finger's press ends as the browser takes it over to scroll |
+
+`destroy()` takes every class away. A rebuild does too — `api.reInit()`, a breakpoint, slides added or removed — and then writes them again with the options in force.
+
+The viewport carries two attributes of the core's own, without the plugin: `data-spill-draggable` (the same as `is-draggable`) and `data-spill-dragging` — the latter only while a mouse really drags, past `dragThreshold`, not on a plain click.
+
+## CSS recipes
+
+### The selected slide
+
+Let the other slides step back — only once ClassNames has marked one, so without JavaScript every slide looks the same. `:has()` waits for the class:
+
+```css
+.slide > * {
+  transition: opacity 0.3s, scale 0.3s;
+}
+
+.container:has(.is-snapped) .slide:not(.is-snapped) > * {
+  opacity: 0.4;
+  scale: 0.9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide > * {
+    transition: none;
+  }
+}
+```
+
+<Callout kind="warning" title="Scale what's in the slide">
+  Spill measures the slides where they are drawn. A `scale` or a `transform` on a slide throws its snap off the next time the carousel measures — put it on the slide's content, as here.
+</Callout>
+
+### The slides in view
+
+With `inViewThreshold`, "in view" can mean "nearly all of it shows". Fade the slides the edges cut:
+
+```js
+Spill(viewport, { align: "start", inViewThreshold: 0.9 }, [ClassNames()]);
+```
+
+```css
+.slide {
+  transition: opacity 0.3s;
+}
+
+.container:has(.is-in-view) .slide:not(.is-in-view) {
+  opacity: 0.35;
+}
+```
+
+### A grab cursor
+
+```css
+.viewport.is-draggable {
+  cursor: grab;
+}
+
+.viewport.is-dragging {
+  cursor: grabbing;
+}
+```
+
+Without the plugin, the core's attributes do the same: `.viewport[data-spill-draggable]` and `.viewport[data-spill-dragging]`.
+
+## Breakpoints
+
+`active: false` leaves the classes out. In `breakpoints`, that goes by the screen — a carousel on a phone, a plain grid on a wide screen with no slide dimmed:
+
+```js
+Spill(viewport, { align: "start" }, [
+  ClassNames({ breakpoints: { "(min-width: 1024px)": { active: false } } }),
+]);
+```
+
+A breakpoint that starts or stops matching rebuilds the carousel: the classes are taken away, then written again with the options in force. CSS that waits for a class, as in the recipes above, then simply doesn't apply.
+
+When the carousel itself is off (its own `active: false`), so is ClassNames. More on screens: [Breakpoints](/docs/guides/breakpoints/).

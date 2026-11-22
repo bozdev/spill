@@ -1,0 +1,16 @@
+---
+// "On this page": the page's h2 and h3
+type Heading = { depth: number; slug: string; text: string };
+const { headings = [] } = Astro.props as { headings?: Heading[] };
+const shown = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
+---
+{shown.length > 1 && (
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      {shown.map((heading) => (
+        <li><a href={`#${heading.slug}`} data-depth={heading.depth}>{heading.text}</a></li>
+      ))}
+    </ul>
+  </nav>
+)}
